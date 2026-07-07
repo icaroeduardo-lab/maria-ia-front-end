@@ -5,6 +5,8 @@
  * e é enviado como Bearer em todas as requisições. Ver docs/guia-frontend.md.
  */
 
+import { definirErroGlobal } from "@/lib/erro-global"
+
 const BASE_URL = import.meta.env.VITE_API_URL
 const TOKEN = import.meta.env.VITE_API_TOKEN
 
@@ -39,7 +41,7 @@ function montarUrl(caminho: string, query?: Query): string {
 async function requisicao<T>(
   metodo: "GET" | "POST" | "PUT" | "DELETE",
   caminho: string,
-  opcoes: { corpo?: unknown; query?: Query; formData?: FormData } = {},
+  opcoes: { corpo?: unknown; query?: Query; formData?: FormData } = {}
 ): Promise<T> {
   const headers: HeadersInit = {
     Authorization: `Bearer ${TOKEN}`,
@@ -62,6 +64,10 @@ async function requisicao<T>(
 
   const texto = await resposta.text()
   const dados: unknown = texto ? JSON.parse(texto) : null
+
+  if (resposta.status === 401) definirErroGlobal("token-invalido")
+  else if (resposta.status === 503) definirErroGlobal("banco-nao-configurado")
+  else definirErroGlobal(null)
 
   if (!resposta.ok) throw new ErroApi(resposta.status, dados)
 
