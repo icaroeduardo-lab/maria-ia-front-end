@@ -92,6 +92,17 @@ O contexto de trabalho **não depende da máquina**:
 
 Uma sessão nova do Claude Code no PC de casa carrega tudo isso sozinha ao abrir o repositório.
 
+## Primeiro prompt sugerido
+
+Não é necessário prompt estruturado (PACE etc.) — o contexto vem dos arquivos acima, que o Claude Code carrega sozinho. Basta algo direto:
+
+```
+Estou continuando o desenvolvimento do painel em outra máquina.
+Confere `gh issue list` e `gh pr list`, me resume o estado atual
+e o que falta da fundação. Depois executa a próxima issue aberta,
+criando branch conforme docs/padroes-branch.md.
+```
+
 ## Observações
 
 - **Statusline do caveman**: o `settings.json` aponta para um caminho de cache com hash. Se a statusline quebrar na máquina nova, rode `/caveman` uma vez que o plugin se reconfigura.
