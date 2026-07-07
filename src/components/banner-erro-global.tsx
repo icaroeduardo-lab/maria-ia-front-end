@@ -43,7 +43,7 @@ export function BannerErroGlobal() {
         variant={ehAviso ? "default" : "destructive"}
         className={cn(
           ehAviso &&
-            "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 *:data-[slot=alert-description]:text-amber-700/90 dark:*:data-[slot=alert-description]:text-amber-400/90"
+            "border-amber-500/40 bg-amber-500/10 text-amber-700 *:data-[slot=alert-description]:text-amber-700/90 dark:text-amber-400 dark:*:data-[slot=alert-description]:text-amber-400/90"
         )}
       >
         <TriangleAlert />
