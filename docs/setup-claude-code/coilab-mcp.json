@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "coilab": {
+      "type": "stdio",
+      "command": "npm",
+      "args": [
+        "run",
+        "--prefix",
+        "/home/icaro/COILAB/coilab-web-back-end",
+        "--silent",
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}
