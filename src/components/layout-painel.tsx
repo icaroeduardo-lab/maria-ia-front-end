@@ -1,13 +1,14 @@
 import { Outlet, useLocation } from "react-router"
 
 import { BannerErroGlobal } from "@/components/banner-erro-global"
-import { itensNavegacao, SidebarPainel } from "@/components/sidebar-painel"
+import { SidebarPainel } from "@/components/sidebar-painel"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { itensNavegacao } from "@/lib/navegacao"
 
 export function LayoutPainel() {
   const { pathname } = useLocation()
