@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "react-router"
-import { History, Pencil, Play, Plus, Trash2 } from "lucide-react"
+import { History, Pencil, Play, Plus, Power, PowerOff, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -128,9 +128,13 @@ export function PaginaFluxos() {
                   <TableCell className="font-medium">{fluxo.name}</TableCell>
                   <TableCell>
                     {fluxo.active ? (
-                      <Badge>ATIVO</Badge>
+                      <Badge className="bg-green-600 text-white dark:bg-green-500 dark:text-green-950">
+                        ATIVO
+                      </Badge>
                     ) : (
-                      <Badge variant="outline">inativo</Badge>
+                      <Badge className="bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400">
+                        inativo
+                      </Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -139,21 +143,17 @@ export function PaginaFluxos() {
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
                       {fluxo.active ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
+                        <BotaoAcao
+                          rotulo="Desativar fluxo"
+                          icone={PowerOff}
                           onClick={() => setFluxoParaDesativar(fluxo)}
-                        >
-                          Desativar
-                        </Button>
+                        />
                       ) : (
-                        <Button
-                          variant="secondary"
-                          size="sm"
+                        <BotaoAcao
+                          rotulo="Ativar fluxo"
+                          icone={Power}
                           onClick={() => setFluxoParaAtivar(fluxo)}
-                        >
-                          Ativar
-                        </Button>
+                        />
                       )}
                       <BotaoAcao
                         rotulo="Abrir no builder"
