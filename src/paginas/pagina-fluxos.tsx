@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useNavigate } from "react-router"
-import { History, Pencil, Play, Plus, Trash2 } from "lucide-react"
+import { History, Pencil, Play, Plus, Power, PowerOff, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,10 +35,14 @@ import {
 } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
+  ativarFluxo,
   criarFluxo,
+  desativarFluxo,
   excluirFluxo,
   listarFluxos,
+  validarFluxo,
   type FluxoResumo,
+  type ResultadoValidacao,
 } from "@/lib/fluxos"
 
 function formatarData(iso?: string): string {
@@ -53,6 +57,10 @@ export function PaginaFluxos() {
   const [fluxos, setFluxos] = React.useState<FluxoResumo[] | null>(null)
   const [erroLista, setErroLista] = React.useState<string | null>(null)
   const [fluxoParaExcluir, setFluxoParaExcluir] =
+    React.useState<FluxoResumo | null>(null)
+  const [fluxoParaAtivar, setFluxoParaAtivar] =
+    React.useState<FluxoResumo | null>(null)
+  const [fluxoParaDesativar, setFluxoParaDesativar] =
     React.useState<FluxoResumo | null>(null)
 
   const carregar = React.useCallback(() => {
@@ -120,16 +128,33 @@ export function PaginaFluxos() {
                   <TableCell className="font-medium">{fluxo.name}</TableCell>
                   <TableCell>
                     {fluxo.active ? (
-                      <Badge>ATIVO</Badge>
+                      <Badge className="bg-green-600 text-white dark:bg-green-500 dark:text-green-950">
+                        ATIVO
+                      </Badge>
                     ) : (
-                      <Badge variant="outline">inativo</Badge>
+                      <Badge className="bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400">
+                        inativo
+                      </Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatarData(fluxo.updatedAt ?? fluxo.createdAt)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex justify-end gap-1">
+                    <div className="flex items-center justify-end gap-1">
+                      {fluxo.active ? (
+                        <BotaoAcao
+                          rotulo="Desativar fluxo"
+                          icone={PowerOff}
+                          onClick={() => setFluxoParaDesativar(fluxo)}
+                        />
+                      ) : (
+                        <BotaoAcao
+                          rotulo="Ativar fluxo"
+                          icone={Power}
+                          onClick={() => setFluxoParaAtivar(fluxo)}
+                        />
+                      )}
                       <BotaoAcao
                         rotulo="Abrir no builder"
                         icone={Pencil}
@@ -167,6 +192,22 @@ export function PaginaFluxos() {
         aoFechar={() => setFluxoParaExcluir(null)}
         aoExcluir={() => carregar()}
       />
+      {fluxoParaAtivar && (
+        <ModalAtivarFluxo
+          key={fluxoParaAtivar.id}
+          fluxo={fluxoParaAtivar}
+          aoFechar={() => setFluxoParaAtivar(null)}
+          aoAtivar={() => carregar()}
+        />
+      )}
+      {fluxoParaDesativar && (
+        <ModalDesativarFluxo
+          key={fluxoParaDesativar.id}
+          fluxo={fluxoParaDesativar}
+          aoFechar={() => setFluxoParaDesativar(null)}
+          aoDesativar={() => carregar()}
+        />
+      )}
     </div>
   )
 }
@@ -338,6 +379,172 @@ function ModalExcluirFluxo({
             }}
           >
             {excluindo ? "Excluindo..." : "Excluir"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function ModalAtivarFluxo({
+  fluxo,
+  aoFechar,
+  aoAtivar,
+}: {
+  fluxo: FluxoResumo
+  aoFechar: () => void
+  aoAtivar: () => void
+}) {
+  const [validacao, setValidacao] = React.useState<ResultadoValidacao | null>(
+    null
+  )
+  const [erro, setErro] = React.useState<string | null>(null)
+  const [ativando, setAtivando] = React.useState(false)
+
+  React.useEffect(() => {
+    validarFluxo(fluxo.id)
+      .then(setValidacao)
+      .catch(() => {
+        setErro("Não foi possível validar o fluxo. Feche e tente novamente.")
+      })
+  }, [fluxo.id])
+
+  const temErros = validacao !== null && validacao.erros.length > 0
+  const avisos = validacao?.avisos ?? []
+  const podeAtivar = validacao !== null && !temErros && !ativando
+
+  function ativar() {
+    if (!podeAtivar) return
+    setAtivando(true)
+    setErro(null)
+    ativarFluxo(fluxo.id)
+      .then(() => {
+        aoFechar()
+        aoAtivar()
+      })
+      .catch(() => {
+        setErro("Não foi possível ativar o fluxo. Tente novamente.")
+        setAtivando(false)
+      })
+  }
+
+  return (
+    <AlertDialog
+      open
+      onOpenChange={(abrir) => {
+        if (!abrir) aoFechar()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Ativar fluxo?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Ativar <strong>{fluxo.name}</strong> troca o fluxo de{" "}
+            <strong>PRODUÇÃO em runtime</strong>, sem deploy: o atendimento
+            passa a seguir este fluxo imediatamente e o fluxo ativo atual é
+            desativado.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {validacao === null && !erro && (
+          <p className="text-sm text-muted-foreground">Validando fluxo...</p>
+        )}
+
+        {temErros && (
+          <div className="flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <p className="font-medium">
+              A validação encontrou erros — corrija no builder antes de ativar:
+            </p>
+            <ul className="list-disc pl-5">
+              {validacao.erros.map((mensagem) => (
+                <li key={mensagem}>{mensagem}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {validacao !== null && !temErros && avisos.length > 0 && (
+          <div className="flex flex-col gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+            <p className="font-medium">Avisos da validação:</p>
+            <ul className="list-disc pl-5">
+              {avisos.map((mensagem) => (
+                <li key={mensagem}>{mensagem}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {validacao !== null && !temErros && (
+          <p className="text-sm font-medium">
+            Fluxo validado sem erros. Confirme para colocar em produção.
+          </p>
+        )}
+
+        {erro && <p className="text-sm text-destructive">{erro}</p>}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={ativando}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction disabled={!podeAtivar} onClick={ativar}>
+            {ativando ? "Ativando..." : "Ativar em produção"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function ModalDesativarFluxo({
+  fluxo,
+  aoFechar,
+  aoDesativar,
+}: {
+  fluxo: FluxoResumo
+  aoFechar: () => void
+  aoDesativar: () => void
+}) {
+  const [desativando, setDesativando] = React.useState(false)
+  const [erro, setErro] = React.useState<string | null>(null)
+
+  function desativar() {
+    if (desativando) return
+    setDesativando(true)
+    setErro(null)
+    desativarFluxo(fluxo.id)
+      .then(() => {
+        aoFechar()
+        aoDesativar()
+      })
+      .catch(() => {
+        setErro("Não foi possível desativar o fluxo. Tente novamente.")
+        setDesativando(false)
+      })
+  }
+
+  return (
+    <AlertDialog
+      open
+      onOpenChange={(abrir) => {
+        if (!abrir) aoFechar()
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Desativar fluxo?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Desativar <strong>{fluxo.name}</strong> deixa o bot{" "}
+            <strong>sem nenhum fluxo ativo em produção</strong> até que outro
+            seja ativado.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {erro && <p className="text-sm text-destructive">{erro}</p>}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={desativando}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={desativando}
+            onClick={desativar}
+          >
+            {desativando ? "Desativando..." : "Desativar"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
