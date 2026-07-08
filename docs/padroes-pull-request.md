@@ -69,4 +69,11 @@ Antes de abrir o PR:
 
 - Pelo menos 1 aprovação antes do merge.
 - Comentários de revisão resolvidos ou respondidos antes do merge.
-- Merge preferencial: squash (histórico limpo em `develop`), mantendo o título do PR como mensagem.
+
+## Estratégia de merge
+
+| PR | Estratégia | Motivo |
+|---|---|---|
+| Branch de trabalho → `develop` | **Squash** (título do PR como mensagem) | Histórico limpo em `develop`, um commit por issue |
+| `develop` → `main` (release) | **Merge commit** — nunca squash | Squash reescreve os commits compartilhados e faz o próximo release acusar conflito/duplicação |
+| `hotfix/*` → `main` | **Squash**, depois merge de volta em `develop` | Correção pontual; o retorno mantém as branches sincronizadas |
