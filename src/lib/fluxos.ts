@@ -30,3 +30,23 @@ export function criarFluxo(name: string) {
 export function excluirFluxo(id: string) {
   return api.delete<void>(`/admin/flows/${id}`)
 }
+
+export interface ResultadoValidacao {
+  ok: boolean
+  erros: string[]
+  avisos?: string[]
+}
+
+/** Valida estrutura e compilação do fluxo — obrigatório antes de ativar. */
+export function validarFluxo(id: string) {
+  return api.get<ResultadoValidacao>(`/admin/flows/${id}/validar`)
+}
+
+/** Ativa o fluxo em PRODUÇÃO (runtime); o backend desativa os demais. */
+export function ativarFluxo(id: string) {
+  return api.post<void>(`/admin/flows/${id}/activate`)
+}
+
+export function desativarFluxo(id: string) {
+  return api.post<void>(`/admin/flows/${id}/deactivate`)
+}
