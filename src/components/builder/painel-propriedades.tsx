@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { CampoImagem } from "@/components/builder/campo-imagem"
+import { CampoInterpolavel } from "@/components/builder/campo-interpolavel"
 import { CampoSubfluxo } from "@/components/builder/campo-subfluxo"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import type { ChaveDoFluxo } from "@/lib/chaves-fluxo"
 import {
   INFO_DOS_NOS,
   TIPOS_DE_PERGUNTA,
@@ -30,11 +32,13 @@ export function PainelPropriedades({
   dados,
   aoAtualizar,
   fluxoAtualId,
+  chaves,
 }: {
   tipo: TipoDeNo
   dados: Dados
   aoAtualizar: (campo: string, valor: unknown) => void
   fluxoAtualId?: string
+  chaves: ChaveDoFluxo[]
 }) {
   const info = INFO_DOS_NOS[tipo]
 
@@ -51,6 +55,7 @@ export function PainelPropriedades({
         dados={dados}
         aoAtualizar={aoAtualizar}
         fluxoAtualId={fluxoAtualId}
+        chaves={chaves}
       />
     </aside>
   )
@@ -61,20 +66,46 @@ function CamposDoTipo({
   dados,
   aoAtualizar,
   fluxoAtualId,
+  chaves,
 }: {
   tipo: TipoDeNo
   dados: Dados
   aoAtualizar: (campo: string, valor: unknown) => void
   fluxoAtualId?: string
+  chaves: ChaveDoFluxo[]
 }) {
   switch (tipo) {
     case "mensagem":
       return (
         <>
-          <CampoTextarea nome="texto" rotulo="Texto" dados={dados} aoAtualizar={aoAtualizar} />
-          <CampoTexto nome="imagem" rotulo="Imagem (url)" dados={dados} aoAtualizar={aoAtualizar} />
-          <CampoBool nome="textoAntes" rotulo="Texto antes da imagem" dados={dados} aoAtualizar={aoAtualizar} />
-          <CampoTexto nome="ctaUrl" rotulo="CTA — url" dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoInterpolavel
+            as="textarea"
+            nome="texto"
+            rotulo="Texto"
+            valor={texto(dados, "texto")}
+            onChange={(v) => aoAtualizar("texto", v)}
+            chaves={chaves}
+          />
+          <CampoInterpolavel
+            nome="imagem"
+            rotulo="Imagem (url)"
+            valor={texto(dados, "imagem")}
+            onChange={(v) => aoAtualizar("imagem", v)}
+            chaves={chaves}
+          />
+          <CampoBool
+            nome="textoAntes"
+            rotulo="Texto antes da imagem"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
+          <CampoInterpolavel
+            nome="ctaUrl"
+            rotulo="CTA — url"
+            valor={texto(dados, "ctaUrl")}
+            onChange={(v) => aoAtualizar("ctaUrl", v)}
+            chaves={chaves}
+          />
           <CampoTexto
             nome="ctaTexto"
             rotulo="CTA — texto do botão"
@@ -88,7 +119,14 @@ function CamposDoTipo({
     case "pergunta":
       return (
         <>
-          <CampoTextarea nome="texto" rotulo="Texto da pergunta" dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoInterpolavel
+            as="textarea"
+            nome="texto"
+            rotulo="Texto da pergunta"
+            valor={texto(dados, "texto")}
+            onChange={(v) => aoAtualizar("texto", v)}
+            chaves={chaves}
+          />
           <CampoTexto
             nome="chave"
             rotulo="Chave"
@@ -141,7 +179,12 @@ function CamposDoTipo({
     case "classificar":
       return (
         <>
-          <CampoTexto nome="chave" rotulo="Chave" dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoTexto
+            nome="chave"
+            rotulo="Chave"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
           <CampoLista
             nome="opcoes"
             rotulo="Categorias"
@@ -149,25 +192,46 @@ function CamposDoTipo({
             aoAtualizar={aoAtualizar}
             dica="uma categoria por linha; roteiam pelo label das edges"
           />
-          <CampoTextarea nome="prompt" rotulo="Prompt" dados={dados} aoAtualizar={aoAtualizar} />
-          <CampoBool nome="usarRag" rotulo="Usar RAG" dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoTextarea
+            nome="prompt"
+            rotulo="Prompt"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
+          <CampoBool
+            nome="usarRag"
+            rotulo="Usar RAG"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
         </>
       )
     case "ia":
       return (
         <>
-          <CampoTextarea nome="prompt" rotulo="Prompt" dados={dados} aoAtualizar={aoAtualizar} />
-          <CampoBool nome="usarRag" rotulo="Usar RAG" dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoTextarea
+            nome="prompt"
+            rotulo="Prompt"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
+          <CampoBool
+            nome="usarRag"
+            rotulo="Usar RAG"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
         </>
       )
     case "api":
       return (
         <>
-          <CampoTexto
+          <CampoInterpolavel
             nome="url"
             rotulo="URL"
-            dados={dados}
-            aoAtualizar={aoAtualizar}
+            valor={texto(dados, "url")}
+            onChange={(v) => aoAtualizar("url", v)}
+            chaves={chaves}
             dica="url relativa resolve no próprio server"
           />
           <CampoSelect
@@ -194,14 +258,29 @@ function CamposDoTipo({
             fluxoAtualId={fluxoAtualId}
             aoMudar={(id) => aoAtualizar("refFlowId", id)}
           />
-          <CampoTexto nome="titulo" rotulo="Título" dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoTexto
+            nome="titulo"
+            rotulo="Título"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
         </>
       )
     case "atribuir":
       return (
         <>
-          <CampoTexto nome="chave" rotulo="Chave" dados={dados} aoAtualizar={aoAtualizar} />
-          <CampoTexto nome="valor" rotulo="Valor" dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoTexto
+            nome="chave"
+            rotulo="Chave"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
+          <CampoTexto
+            nome="valor"
+            rotulo="Valor"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
         </>
       )
     case "encerrar":

@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { ErroApi } from "@/lib/api"
+import { extrairChavesDoFluxo } from "@/lib/chaves-fluxo"
 import {
   obterFluxo,
   salvarFluxo,
@@ -43,7 +44,15 @@ import {
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 
 function resumoDoNo(data: Record<string, unknown>): string {
-  for (const campo of ["texto", "chave", "campo", "prompt", "url", "refFlowId", "titulo"]) {
+  for (const campo of [
+    "texto",
+    "chave",
+    "campo",
+    "prompt",
+    "url",
+    "refFlowId",
+    "titulo",
+  ]) {
     const valor = data[campo]
     if (typeof valor === "string" && valor.trim()) {
       return valor.length > 30 ? `${valor.slice(0, 30)}…` : valor
@@ -99,7 +108,10 @@ function paraCanvas(fluxo: Fluxo): { nodes: Node[]; edges: Edge[] } {
   }
 }
 
-function paraApi(nodes: Node[], edges: Edge[]): {
+function paraApi(
+  nodes: Node[],
+  edges: Edge[]
+): {
   nodes: NoFluxo[]
   edges: ArestaFluxo[]
 } {
@@ -215,6 +227,7 @@ function ConteudoBuilder() {
 
   const noSelecionado = nodes.find((no) => no.selected)
   const arestaSelecionada = edges.find((aresta) => aresta.selected)
+  const chaves = React.useMemo(() => extrairChavesDoFluxo(nodes), [nodes])
 
   function atualizarLabelDaAresta(valor: string) {
     if (!arestaSelecionada) return
@@ -228,18 +241,17 @@ function ConteudoBuilder() {
     setAlterado(true)
   }
 
-  function adicionarNo(
-    tipo: TipoDeNo,
-    position?: { x: number; y: number }
-  ) {
+  function adicionarNo(tipo: TipoDeNo, position?: { x: number; y: number }) {
     const idNovo = novoIdDeNo(new Set(nodes.map((no) => no.id)))
     setNodes((atuais) => [
       ...atuais.map((no) => ({ ...no, selected: false })),
       {
         id: idNovo,
         type: tipo,
-        position:
-          position ?? { x: 80 + atuais.length * 24, y: 80 + atuais.length * 24 },
+        position: position ?? {
+          x: 80 + atuais.length * 24,
+          y: 80 + atuais.length * 24,
+        },
         data: {},
         selected: true,
       },
@@ -282,7 +294,9 @@ function ConteudoBuilder() {
     })
       .then((salvo) => {
         setFluxo((atual) =>
-          atual ? { ...atual, updatedAt: salvo?.updatedAt ?? atual.updatedAt } : atual
+          atual
+            ? { ...atual, updatedAt: salvo?.updatedAt ?? atual.updatedAt }
+            : atual
         )
         setAlterado(false)
         setSalvando(false)
@@ -343,7 +357,9 @@ function ConteudoBuilder() {
                 </Button>
               }
             />
-            <TooltipContent>Validação no canvas — em desenvolvimento</TooltipContent>
+            <TooltipContent>
+              Validação no canvas — em desenvolvimento
+            </TooltipContent>
           </Tooltip>
           <Button
             variant="outline"
@@ -371,8 +387,8 @@ function ConteudoBuilder() {
       {conflito && (
         <div className="flex items-center justify-between rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
           <span>
-            Alguém salvou este fluxo antes de você. Recarregue para ver a
-            versão atual — suas alterações locais serão descartadas.
+            Alguém salvou este fluxo antes de você. Recarregue para ver a versão
+            atual — suas alterações locais serão descartadas.
           </span>
           <Button variant="outline" size="sm" onClick={() => carregar()}>
             Recarregar
@@ -420,6 +436,7 @@ function ConteudoBuilder() {
             dados={noSelecionado.data as Record<string, unknown>}
             aoAtualizar={atualizarDadosDoNo}
             fluxoAtualId={id}
+            chaves={chaves}
           />
         ) : arestaSelecionada ? (
           <PainelAresta
