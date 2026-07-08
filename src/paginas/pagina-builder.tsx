@@ -24,6 +24,7 @@ import { ArrowLeft, History, Play, Save, ShieldCheck } from "lucide-react"
 import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
 import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
 import { PainelAresta } from "@/components/builder/painel-aresta"
+import { PainelHistorico } from "@/components/builder/painel-historico"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { PainelValidacao } from "@/components/builder/painel-validacao"
 import { DrawerChatTeste } from "@/components/chat-teste/drawer-chat-teste"
@@ -32,13 +33,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ErroApi } from "@/lib/api"
 import { extrairChavesDoFluxo } from "@/lib/chaves-fluxo"
 import {
+  listarVersoes,
   obterFluxo,
+  obterVersao,
   salvarFluxo,
   validarFluxo,
   type ArestaFluxo,
   type Fluxo,
   type NoFluxo,
   type ResultadoValidacao,
+  type VersaoResumo,
 } from "@/lib/fluxos"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 import { cn } from "@/lib/utils"
@@ -106,15 +110,18 @@ const tiposDeNoDoCanvas = Object.fromEntries(
 
 const tiposDeAresta = { rotulada: ArestaRotulada }
 
-function paraCanvas(fluxo: Fluxo): { nodes: Node[]; edges: Edge[] } {
+function paraCanvas(dados: { nodes: NoFluxo[]; edges: ArestaFluxo[] }): {
+  nodes: Node[]
+  edges: Edge[]
+} {
   return {
-    nodes: fluxo.nodes.map((no) => ({
+    nodes: dados.nodes.map((no) => ({
       id: no.id,
       type: no.type,
       position: no.position,
       data: no.data,
     })),
-    edges: fluxo.edges.map((aresta) => ({
+    edges: dados.edges.map((aresta) => ({
       id: aresta.id,
       source: aresta.source,
       target: aresta.target,
@@ -181,6 +188,14 @@ function ConteudoBuilder() {
   const [validando, setValidando] = React.useState(false)
   const [erroValidar, setErroValidar] = React.useState(false)
   const [chatDeTesteAberto, setChatDeTesteAberto] = React.useState(false)
+  const [historicoAberto, setHistoricoAberto] = React.useState(false)
+  const [versoes, setVersoes] = React.useState<VersaoResumo[] | null>(null)
+  const [erroVersoes, setErroVersoes] = React.useState(false)
+  const [previewVersao, setPreviewVersao] = React.useState<number | null>(null)
+  const [previewCanvas, setPreviewCanvas] = React.useState<{
+    nodes: Node[]
+    edges: Edge[]
+  } | null>(null)
 
   const carregar = React.useCallback(() => {
     if (!id) return
@@ -197,21 +212,53 @@ function ConteudoBuilder() {
       .catch(() => setErroCarga(true))
   }, [id])
 
+  function abrirHistorico() {
+    setHistoricoAberto(true)
+    if (!id || versoes !== null) return
+    setErroVersoes(false)
+    listarVersoes(id)
+      .then(setVersoes)
+      .catch(() => setErroVersoes(true))
+  }
+
+  function verVersao(versao: number) {
+    if (!id) return
+    obterVersao(id, versao)
+      .then((dados) => {
+        setPreviewVersao(versao)
+        setPreviewCanvas(paraCanvas(dados))
+      })
+      .catch(() => setErroVersoes(true))
+  }
+
+  function sairDoPreview() {
+    setPreviewVersao(null)
+    setPreviewCanvas(null)
+  }
+
   React.useEffect(() => {
     carregar()
   }, [carregar])
 
-  const aoMudarNodes = React.useCallback((mudancas: NodeChange[]) => {
-    setNodes((atuais) => applyNodeChanges(mudancas, atuais))
-    if (mudancas.some((m) => m.type === "position" || m.type === "remove")) {
-      setAlterado(true)
-    }
-  }, [])
+  const aoMudarNodes = React.useCallback(
+    (mudancas: NodeChange[]) => {
+      if (previewCanvas) return
+      setNodes((atuais) => applyNodeChanges(mudancas, atuais))
+      if (mudancas.some((m) => m.type === "position" || m.type === "remove")) {
+        setAlterado(true)
+      }
+    },
+    [previewCanvas]
+  )
 
-  const aoMudarEdges = React.useCallback((mudancas: EdgeChange[]) => {
-    setEdges((atuais) => applyEdgeChanges(mudancas, atuais))
-    if (mudancas.some((m) => m.type === "remove")) setAlterado(true)
-  }, [])
+  const aoMudarEdges = React.useCallback(
+    (mudancas: EdgeChange[]) => {
+      if (previewCanvas) return
+      setEdges((atuais) => applyEdgeChanges(mudancas, atuais))
+      if (mudancas.some((m) => m.type === "remove")) setAlterado(true)
+    },
+    [previewCanvas]
+  )
 
   const aoConectar = React.useCallback(
     (conexao: Connection) => {
@@ -404,7 +451,7 @@ function ConteudoBuilder() {
           <Button
             variant="outline"
             size="sm"
-            disabled={validando}
+            disabled={validando || !!previewCanvas}
             onClick={validar}
           >
             <ShieldCheck className="size-4" />
@@ -418,20 +465,32 @@ function ConteudoBuilder() {
             <Play className="size-4" />
             Testar
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/fluxos/${id}/historico`)}
-          >
+          <Button variant="outline" size="sm" onClick={abrirHistorico}>
             <History className="size-4" />
             Histórico
           </Button>
-          <Button size="sm" disabled={!alterado || salvando} onClick={salvar}>
+          <Button
+            size="sm"
+            disabled={!alterado || salvando || !!previewCanvas}
+            onClick={salvar}
+          >
             <Save className="size-4" />
             {salvando ? "Salvando..." : "Salvar"}
           </Button>
         </div>
       </div>
+
+      {previewCanvas && (
+        <div className="flex items-center justify-between rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          <span>
+            Vendo v{previewVersao} — somente leitura. Nada aqui é salvo até você
+            restaurar esta versão.
+          </span>
+          <Button variant="outline" size="sm" onClick={sairDoPreview}>
+            Voltar ao atual
+          </Button>
+        </div>
+      )}
 
       {conflito && (
         <div className="flex items-center justify-between rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
@@ -452,26 +511,32 @@ function ConteudoBuilder() {
       )}
 
       <div className="flex min-h-0 flex-1 gap-3">
-        <PaletaNos aoAdicionar={adicionarNo} />
+        {!previewCanvas && <PaletaNos aoAdicionar={adicionarNo} />}
         <div
           className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border"
           onDragOver={(evento) => {
-            if (evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)) {
+            if (
+              !previewCanvas &&
+              evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)
+            ) {
               evento.preventDefault()
               evento.dataTransfer.dropEffect = "move"
             }
           }}
-          onDrop={aoSoltarNaTela}
+          onDrop={previewCanvas ? undefined : aoSoltarNaTela}
         >
           <ContextoValidacaoCanvas.Provider value={destaqueValidacao}>
             <ReactFlow
-              nodes={nodes}
-              edges={edges}
+              nodes={previewCanvas?.nodes ?? nodes}
+              edges={previewCanvas?.edges ?? edges}
               nodeTypes={tiposDeNoDoCanvas}
               edgeTypes={tiposDeAresta}
               onNodesChange={aoMudarNodes}
               onEdgesChange={aoMudarEdges}
               onConnect={aoConectar}
+              nodesDraggable={!previewCanvas}
+              nodesConnectable={!previewCanvas}
+              elementsSelectable={!previewCanvas}
               fitView
               proOptions={{ hideAttribution: true }}
             >
@@ -480,7 +545,16 @@ function ConteudoBuilder() {
             </ReactFlow>
           </ContextoValidacaoCanvas.Provider>
         </div>
-        {noSelecionado ? (
+        {historicoAberto ? (
+          <PainelHistorico
+            versoes={versoes}
+            erro={erroVersoes}
+            atualizadoEm={fluxo.updatedAt}
+            versaoEmPreview={previewVersao}
+            aoVer={verVersao}
+            aoFechar={() => setHistoricoAberto(false)}
+          />
+        ) : noSelecionado ? (
           <PainelPropriedades
             key={noSelecionado.id}
             tipo={noSelecionado.type as TipoDeNo}
