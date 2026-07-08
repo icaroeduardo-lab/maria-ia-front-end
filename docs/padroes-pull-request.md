@@ -51,8 +51,21 @@ Passos objetivos para o revisor validar (comandos, telas, cenários).
 Decisões de implementação, débitos assumidos, prints/screenshots.
 ```
 
-- Usar `Closes #N` (ou `Fixes #N`) para fechar a issue automaticamente no merge.
+- Usar `Closes #N` (ou `Fixes #N`) para vincular a issue ao PR.
 - "Como testar" é obrigatório quando há mudança de comportamento visível.
+
+## Fechamento da issue vinculada
+
+O GitHub só fecha a issue automaticamente quando o PR mergeia na branch **default** (`main`). Como o destino padrão aqui é `develop`, o fechamento automático **não acontece** — a issue deve ser fechada manualmente junto com o merge:
+
+- Ao mergear um PR em `develop`, fechar a issue vinculada imediatamente, com comentário referenciando o PR:
+
+  ```bash
+  gh issue close <numero> --comment "Resolvida pelo PR #<numero-do-pr>, mergeado em develop."
+  ```
+
+- PRs `hotfix/*` (destino `main`) fecham a issue automaticamente via `Closes #N`; não é preciso fechar manualmente.
+- Nunca considerar o merge concluído com a issue vinculada ainda aberta.
 
 ## Checklist do autor
 
