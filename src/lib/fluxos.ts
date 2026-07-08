@@ -14,9 +14,24 @@ export interface FluxoResumo {
   updatedAt?: string
 }
 
+/** Nó do grafo — id estável e position preservado (contrato do engine). */
+export interface NoFluxo {
+  id: string
+  type: string
+  position: { x: number; y: number }
+  data: Record<string, unknown>
+}
+
+export interface ArestaFluxo {
+  id: string
+  source: string
+  target: string
+  label?: string
+}
+
 export interface Fluxo extends FluxoResumo {
-  nodes: object[]
-  edges: object[]
+  nodes: NoFluxo[]
+  edges: ArestaFluxo[]
 }
 
 export function listarFluxos() {
@@ -29,6 +44,26 @@ export function criarFluxo(name: string) {
 
 export function excluirFluxo(id: string) {
   return api.delete<void>(`/admin/flows/${id}`)
+}
+
+export function obterFluxo(id: string) {
+  return api.get<Fluxo>(`/admin/flows/${id}`)
+}
+
+/**
+ * Salva o fluxo com lock otimista: envia o updatedAt carregado;
+ * a API responde 409 se alguém salvou depois disso.
+ */
+export function salvarFluxo(
+  id: string,
+  fluxo: {
+    name: string
+    nodes: NoFluxo[]
+    edges: ArestaFluxo[]
+    updatedAt?: string
+  }
+) {
+  return api.put<Fluxo>(`/admin/flows/${id}`, fluxo)
 }
 
 export interface ResultadoValidacao {
