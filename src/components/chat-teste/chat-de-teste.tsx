@@ -1,6 +1,7 @@
 import * as React from "react"
 import { RotateCcw, Send } from "lucide-react"
 
+import { PainelDebug } from "@/components/chat-teste/painel-debug"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -24,6 +25,9 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
     gerarSessionIdDeTeste()
   )
   const [mensagens, setMensagens] = React.useState<MensagemTestChat[]>([])
+  const [dadosColetados, setDadosColetados] = React.useState<
+    Record<string, unknown>
+  >({})
   const [encerrado, setEncerrado] = React.useState(false)
   const [rascunho, setRascunho] = React.useState("")
   const [carregando, setCarregando] = React.useState(false)
@@ -41,6 +45,7 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
       })
         .then((resposta) => {
           setMensagens((atuais) => [...atuais, ...resposta.messages])
+          setDadosColetados(resposta.dadosColetados)
           setEncerrado(resposta.done)
         })
         .catch((falha) => {
@@ -77,6 +82,7 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
 
   function reiniciar() {
     setMensagens([])
+    setDadosColetados({})
     setEncerrado(false)
     setRascunho("")
     setErro(null)
@@ -165,6 +171,8 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
           <Send className="size-4" />
         </Button>
       </form>
+
+      <PainelDebug dadosColetados={dadosColetados} encerrado={encerrado} />
     </div>
   )
 }
