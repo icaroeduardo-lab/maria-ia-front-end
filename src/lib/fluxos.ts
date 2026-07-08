@@ -77,6 +77,38 @@ export function validarFluxo(id: string) {
   return api.get<ResultadoValidacao>(`/admin/flows/${id}/validar`)
 }
 
+/**
+ * Histórico de versões (docs/guia-frontend.md §4, item resolvido — ainda
+ * não documentado em docs/openapi.yaml, contrato confirmado em produção).
+ *
+ * Cada save gera um snapshot automático no backend com o estado ANTERIOR
+ * ao save, não o resultado dele — a versão mais recente da lista nunca é
+ * o fluxo carregado agora no builder, e sim o estado de antes do último
+ * save. O estado atual só vira uma versão formal no próximo save.
+ */
+export interface VersaoResumo {
+  versao: number
+  name: string
+  autor: string
+  criadoEm: string
+}
+
+export interface VersaoCompleta extends VersaoResumo {
+  id: string
+  flowId: string
+  nodes: NoFluxo[]
+  edges: ArestaFluxo[]
+}
+
+/** Mais recente primeiro. */
+export function listarVersoes(id: string) {
+  return api.get<VersaoResumo[]>(`/admin/flows/${id}/versoes`)
+}
+
+export function obterVersao(id: string, versao: number) {
+  return api.get<VersaoCompleta>(`/admin/flows/${id}/versoes/${versao}`)
+}
+
 /** Ativa o fluxo em PRODUÇÃO (runtime); o backend desativa os demais. */
 export function ativarFluxo(id: string) {
   return api.post<void>(`/admin/flows/${id}/activate`)
