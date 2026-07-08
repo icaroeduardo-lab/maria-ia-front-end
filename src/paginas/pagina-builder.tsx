@@ -25,23 +25,23 @@ import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
 import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
 import { PainelAresta } from "@/components/builder/painel-aresta"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
+import { PainelValidacao } from "@/components/builder/painel-validacao"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { ErroApi } from "@/lib/api"
 import { extrairChavesDoFluxo } from "@/lib/chaves-fluxo"
 import {
   obterFluxo,
   salvarFluxo,
+  validarFluxo,
   type ArestaFluxo,
   type Fluxo,
   type NoFluxo,
+  type ResultadoValidacao,
 } from "@/lib/fluxos"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
+import { cn } from "@/lib/utils"
+import { extrairIdDoNoDaMensagem } from "@/lib/validacao-fluxo"
 
 function resumoDoNo(data: Record<string, unknown>): string {
   for (const campo of [
@@ -61,7 +61,14 @@ function resumoDoNo(data: Record<string, unknown>): string {
   return ""
 }
 
-function NoDoEngine({ type, data }: NodeProps) {
+/** Nós citados em erros/avisos da última validação (id -> gravidade). */
+const ContextoValidacaoCanvas = React.createContext<{
+  erros: Set<string>
+  avisos: Set<string>
+}>({ erros: new Set(), avisos: new Set() })
+
+function NoDoEngine({ id, type, data }: NodeProps) {
+  const { erros, avisos } = React.useContext(ContextoValidacaoCanvas)
   const dados = data as Record<string, unknown>
   const resumo = resumoDoNo(dados)
   // Skip-gate do engine: pergunta com chave já preenchida é pulada.
@@ -69,8 +76,16 @@ function NoDoEngine({ type, data }: NodeProps) {
     type === "pergunta" &&
     typeof dados.chave === "string" &&
     dados.chave.trim() !== ""
+  const temErroDeValidacao = erros.has(id)
+  const temAvisoDeValidacao = !temErroDeValidacao && avisos.has(id)
   return (
-    <div className="rounded-md border bg-background px-3 py-2 text-xs shadow-sm">
+    <div
+      className={cn(
+        "rounded-md border bg-background px-3 py-2 text-xs shadow-sm",
+        temErroDeValidacao && "border-2 border-destructive",
+        temAvisoDeValidacao && "border-2 border-amber-500"
+      )}
+    >
       <Handle type="target" position={Position.Top} />
       <span className="font-medium">{type}</span>
       {resumo && <span className="text-muted-foreground">: {resumo}</span>}
@@ -150,7 +165,7 @@ export function PaginaBuilder() {
 function ConteudoBuilder() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, setCenter } = useReactFlow()
 
   const [fluxo, setFluxo] = React.useState<Fluxo | null>(null)
   const [erroCarga, setErroCarga] = React.useState(false)
@@ -160,6 +175,10 @@ function ConteudoBuilder() {
   const [salvando, setSalvando] = React.useState(false)
   const [conflito, setConflito] = React.useState(false)
   const [erroSalvar, setErroSalvar] = React.useState(false)
+  const [resultadoValidacao, setResultadoValidacao] =
+    React.useState<ResultadoValidacao | null>(null)
+  const [validando, setValidando] = React.useState(false)
+  const [erroValidar, setErroValidar] = React.useState(false)
 
   const carregar = React.useCallback(() => {
     if (!id) return
@@ -228,6 +247,37 @@ function ConteudoBuilder() {
   const noSelecionado = nodes.find((no) => no.selected)
   const arestaSelecionada = edges.find((aresta) => aresta.selected)
   const chaves = React.useMemo(() => extrairChavesDoFluxo(nodes), [nodes])
+
+  const idsConhecidos = React.useMemo(() => nodes.map((no) => no.id), [nodes])
+  const destaqueValidacao = React.useMemo(() => {
+    const erros = new Set<string>()
+    const avisos = new Set<string>()
+    for (const mensagem of resultadoValidacao?.erros ?? []) {
+      const idNo = extrairIdDoNoDaMensagem(mensagem, idsConhecidos)
+      if (idNo) erros.add(idNo)
+    }
+    for (const mensagem of resultadoValidacao?.avisos ?? []) {
+      const idNo = extrairIdDoNoDaMensagem(mensagem, idsConhecidos)
+      if (idNo) avisos.add(idNo)
+    }
+    return { erros, avisos }
+  }, [resultadoValidacao, idsConhecidos])
+
+  function validar() {
+    if (!id || validando) return
+    setValidando(true)
+    setErroValidar(false)
+    validarFluxo(id)
+      .then((resultado) => setResultadoValidacao(resultado))
+      .catch(() => setErroValidar(true))
+      .finally(() => setValidando(false))
+  }
+
+  function centralizarNo(idNo: string) {
+    const no = nodes.find((n) => n.id === idNo)
+    if (!no) return
+    setCenter(no.position.x, no.position.y, { zoom: 1, duration: 400 })
+  }
 
   function atualizarLabelDaAresta(valor: string) {
     if (!arestaSelecionada) return
@@ -300,6 +350,7 @@ function ConteudoBuilder() {
         )
         setAlterado(false)
         setSalvando(false)
+        validar()
       })
       .catch((erro) => {
         if (erro instanceof ErroApi && erro.status === 409) setConflito(true)
@@ -348,19 +399,15 @@ function ConteudoBuilder() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button variant="outline" size="sm" disabled>
-                  <ShieldCheck className="size-4" />
-                  Validar
-                </Button>
-              }
-            />
-            <TooltipContent>
-              Validação no canvas — em desenvolvimento
-            </TooltipContent>
-          </Tooltip>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={validando}
+            onClick={validar}
+          >
+            <ShieldCheck className="size-4" />
+            {validando ? "Validando..." : "Validar"}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -414,20 +461,22 @@ function ConteudoBuilder() {
           }}
           onDrop={aoSoltarNaTela}
         >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={tiposDeNoDoCanvas}
-            edgeTypes={tiposDeAresta}
-            onNodesChange={aoMudarNodes}
-            onEdgesChange={aoMudarEdges}
-            onConnect={aoConectar}
-            fitView
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background />
-            <Controls />
-          </ReactFlow>
+          <ContextoValidacaoCanvas.Provider value={destaqueValidacao}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={tiposDeNoDoCanvas}
+              edgeTypes={tiposDeAresta}
+              onNodesChange={aoMudarNodes}
+              onEdgesChange={aoMudarEdges}
+              onConnect={aoConectar}
+              fitView
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background />
+              <Controls />
+            </ReactFlow>
+          </ContextoValidacaoCanvas.Provider>
         </div>
         {noSelecionado ? (
           <PainelPropriedades
@@ -447,6 +496,14 @@ function ConteudoBuilder() {
           />
         ) : null}
       </div>
+
+      <PainelValidacao
+        resultado={resultadoValidacao}
+        validando={validando}
+        erroValidar={erroValidar}
+        idsConhecidos={idsConhecidos}
+        aoSelecionarNo={centralizarNo}
+      />
     </div>
   )
 }
