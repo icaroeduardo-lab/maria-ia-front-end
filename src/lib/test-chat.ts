@@ -10,13 +10,29 @@ import { api } from "@/lib/api"
 export type BlocoConteudo =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } }
-  | { type: "boolean"; trueLabel: string; falseLabel: string }
+  // trueLabel/falseLabel são sempre os literais `true`/`false` (não texto
+  // customizável) — o rótulo exibido é fixo "Sim"/"Não"; o valor enviado
+  // ao responder é o id "true"/"false", nunca o rótulo (contrato do
+  // WhatsApp, docs/guia-frontend.md §3).
+  | { type: "boolean"; trueLabel: boolean; falseLabel: boolean }
   | { type: "options"; options: string[] }
   | { type: "cta_url"; url: string; text: string }
 
 export interface MensagemTestChat {
   role: string
-  content: BlocoConteudo[]
+  // Na prática a API às vezes manda uma string solta em vez do array de
+  // blocos documentado (ex: mensagem final do nó `encerrar`, com o
+  // protocolo) — normalizar antes de renderizar, ver normalizarConteudo().
+  content: BlocoConteudo[] | string
+}
+
+/** Trata o `content` como sempre array de blocos, mesmo quando a API manda string solta. */
+export function normalizarConteudo(
+  content: BlocoConteudo[] | string
+): BlocoConteudo[] {
+  return typeof content === "string"
+    ? [{ type: "text", text: content }]
+    : content
 }
 
 export interface RespostaTestChat {
