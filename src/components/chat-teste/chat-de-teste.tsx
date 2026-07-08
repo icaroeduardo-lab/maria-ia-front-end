@@ -8,6 +8,7 @@ import { ErroApi } from "@/lib/api"
 import {
   enviarMensagemDeTeste,
   gerarSessionIdDeTeste,
+  normalizarConteudo,
   type BlocoConteudo,
   type MensagemTestChat,
 } from "@/lib/test-chat"
@@ -17,10 +18,6 @@ import { cn } from "@/lib/utils"
  * Conteúdo do chat de teste (docs/guia-frontend.md §2.3 e §3) — sem
  * chrome de apresentação (Sheet/página), pra ser reaproveitado tanto
  * numa rota dedicada quanto num drawer sobre o builder/lista (#32).
- *
- * Renderização completa dos 5 content blocks fica na issue #30 — aqui
- * só `text` é tratado por completo; os demais têm um fallback neutro
- * pra não travar a conversa.
  */
 export function ChatDeTeste({ flowId }: { flowId: string }) {
   const [sessionId, setSessionId] = React.useState(() =>
@@ -86,17 +83,29 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
     setSessionId(gerarSessionIdDeTeste())
   }
 
+  /**
+   * Responde ao fluxo: `mensagemApi` é o que vai pro /test-chat (ex: "true"
+   * para boolean), `rotuloExibido` é o que aparece na bolha do usuário (ex:
+   * o rótulo do botão) — só divergem no bloco boolean.
+   */
+  function responder(mensagemApi: string, rotuloExibido = mensagemApi) {
+    if (carregando || encerrado) return
+    setMensagens((atuais) => [
+      ...atuais,
+      { role: "user", content: [{ type: "text", text: rotuloExibido }] },
+    ])
+    enviar(sessionId, mensagemApi)
+  }
+
   function enviarRascunho(evento: React.FormEvent) {
     evento.preventDefault()
     const texto = rascunho.trim()
-    if (!texto || carregando || encerrado) return
-    setMensagens((atuais) => [
-      ...atuais,
-      { role: "user", content: [{ type: "text", text: texto }] },
-    ])
+    if (!texto) return
     setRascunho("")
-    enviar(sessionId, texto)
+    responder(texto)
   }
+
+  const indiceUltimaMensagem = mensagens.length - 1
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -110,7 +119,14 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
         {mensagens.map((mensagem, indice) => (
-          <BolhaMensagem key={indice} mensagem={mensagem} />
+          <BolhaMensagem
+            key={indice}
+            mensagem={mensagem}
+            interativo={
+              indice === indiceUltimaMensagem && !carregando && !encerrado
+            }
+            aoResponder={responder}
+          />
         ))}
         {carregando && (
           <div className="flex flex-col gap-1 self-start">
@@ -153,30 +169,129 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
   )
 }
 
-function BolhaMensagem({ mensagem }: { mensagem: MensagemTestChat }) {
+function BolhaMensagem({
+  mensagem,
+  interativo,
+  aoResponder,
+}: {
+  mensagem: MensagemTestChat
+  interativo: boolean
+  aoResponder: (mensagemApi: string, rotuloExibido?: string) => void
+}) {
   const doUsuario = mensagem.role === "user"
   return (
     <div
       className={cn(
-        "flex max-w-[85%] flex-col gap-1 rounded-2xl px-3 py-2 text-sm",
+        "flex max-w-[85%] flex-col gap-1.5 rounded-2xl px-3 py-2 text-sm",
         doUsuario
           ? "self-end bg-primary text-primary-foreground"
           : "self-start bg-muted text-foreground"
       )}
     >
-      {mensagem.content.map((bloco, indice) => (
-        <Bloco key={indice} bloco={bloco} />
+      {normalizarConteudo(mensagem.content).map((bloco, indice) => (
+        <Bloco
+          key={indice}
+          bloco={bloco}
+          interativo={interativo}
+          aoResponder={aoResponder}
+        />
       ))}
     </div>
   )
 }
 
-function Bloco({ bloco }: { bloco: BlocoConteudo }) {
-  if (bloco.type === "text") return <p>{bloco.text}</p>
-  // Renderização completa dos demais tipos (image_url/boolean/options/cta_url) — issue #30.
-  return (
-    <p className="text-xs text-muted-foreground italic">
-      [bloco: {bloco.type}]
-    </p>
-  )
+function Bloco({
+  bloco,
+  interativo,
+  aoResponder,
+}: {
+  bloco: BlocoConteudo
+  interativo: boolean
+  aoResponder: (mensagemApi: string, rotuloExibido?: string) => void
+}) {
+  switch (bloco.type) {
+    case "text":
+      return <p>{renderizarComNegrito(bloco.text)}</p>
+
+    case "image_url":
+      return (
+        <img
+          src={bloco.image_url.url}
+          alt=""
+          className="max-h-64 w-full rounded-lg object-cover"
+        />
+      )
+
+    case "boolean":
+      // trueLabel/falseLabel só confirmam a existência dos dois botões — o
+      // rótulo é fixo "Sim"/"Não" (docs/guia-frontend.md §3).
+      return (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!interativo}
+            onClick={() => aoResponder("true", "Sim")}
+          >
+            Sim
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!interativo}
+            onClick={() => aoResponder("false", "Não")}
+          >
+            Não
+          </Button>
+        </div>
+      )
+
+    case "options":
+      return (
+        <div className="flex flex-col gap-1">
+          {bloco.options.map((opcao) => (
+            <Button
+              key={opcao}
+              type="button"
+              size="sm"
+              variant="outline"
+              className="justify-start"
+              disabled={!interativo}
+              onClick={() => aoResponder(opcao)}
+            >
+              {opcao}
+            </Button>
+          ))}
+        </div>
+      )
+
+    case "cta_url":
+      return (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            window.open(bloco.url, "_blank", "noopener,noreferrer")
+          }
+        >
+          {bloco.text}
+        </Button>
+      )
+  }
+}
+
+/**
+ * Markdown leve: negrito (docs/guia-frontend.md §3). A produção usa
+ * asterisco único (estilo WhatsApp, ex: "protocolo *MARIA-2026*"), não
+ * o `**duplo**` do exemplo da doc — aceita os dois.
+ */
+function renderizarComNegrito(texto: string): React.ReactNode {
+  const partes = texto.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+  return partes.map((parte, indice) => {
+    const negrito = /^\*{1,2}([^*]+)\*{1,2}$/.exec(parte)
+    return negrito ? <strong key={indice}>{negrito[1]}</strong> : parte
+  })
 }
