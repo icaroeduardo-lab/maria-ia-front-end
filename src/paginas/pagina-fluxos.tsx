@@ -1,7 +1,16 @@
 import * as React from "react"
 import { useNavigate } from "react-router"
-import { History, Pencil, Play, Plus, Power, PowerOff, Trash2 } from "lucide-react"
+import {
+  History,
+  Pencil,
+  Play,
+  Plus,
+  Power,
+  PowerOff,
+  Trash2,
+} from "lucide-react"
 
+import { DrawerChatTeste } from "@/components/chat-teste/drawer-chat-teste"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,7 +42,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   ativarFluxo,
   criarFluxo,
@@ -49,7 +62,10 @@ function formatarData(iso?: string): string {
   if (!iso) return "—"
   const data = new Date(iso)
   if (Number.isNaN(data.getTime())) return "—"
-  return data.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+  return data.toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  })
 }
 
 export function PaginaFluxos() {
@@ -61,6 +77,8 @@ export function PaginaFluxos() {
   const [fluxoParaAtivar, setFluxoParaAtivar] =
     React.useState<FluxoResumo | null>(null)
   const [fluxoParaDesativar, setFluxoParaDesativar] =
+    React.useState<FluxoResumo | null>(null)
+  const [fluxoParaTestar, setFluxoParaTestar] =
     React.useState<FluxoResumo | null>(null)
 
   const carregar = React.useCallback(() => {
@@ -163,7 +181,7 @@ export function PaginaFluxos() {
                       <BotaoAcao
                         rotulo="Testar no chat"
                         icone={Play}
-                        onClick={() => navigate(`/fluxos/${fluxo.id}/testar`)}
+                        onClick={() => setFluxoParaTestar(fluxo)}
                       />
                       <BotaoAcao
                         rotulo="Histórico de versões"
@@ -208,6 +226,16 @@ export function PaginaFluxos() {
           aoDesativar={() => carregar()}
         />
       )}
+      {fluxoParaTestar && (
+        <DrawerChatTeste
+          flowId={fluxoParaTestar.id}
+          nomeFluxo={fluxoParaTestar.name}
+          open
+          onOpenChange={(aberto) => {
+            if (!aberto) setFluxoParaTestar(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -231,7 +259,9 @@ function BotaoAcao({
             variant="ghost"
             size="icon"
             aria-label={rotulo}
-            className={destrutivo ? "text-destructive hover:text-destructive" : undefined}
+            className={
+              destrutivo ? "text-destructive hover:text-destructive" : undefined
+            }
             onClick={onClick}
           >
             <Icone className="size-4" />

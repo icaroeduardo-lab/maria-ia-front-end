@@ -26,6 +26,7 @@ import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
 import { PainelAresta } from "@/components/builder/painel-aresta"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { PainelValidacao } from "@/components/builder/painel-validacao"
+import { DrawerChatTeste } from "@/components/chat-teste/drawer-chat-teste"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErroApi } from "@/lib/api"
@@ -179,6 +180,7 @@ function ConteudoBuilder() {
     React.useState<ResultadoValidacao | null>(null)
   const [validando, setValidando] = React.useState(false)
   const [erroValidar, setErroValidar] = React.useState(false)
+  const [chatDeTesteAberto, setChatDeTesteAberto] = React.useState(false)
 
   const carregar = React.useCallback(() => {
     if (!id) return
@@ -411,7 +413,7 @@ function ConteudoBuilder() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/fluxos/${id}/testar`)}
+            onClick={() => setChatDeTesteAberto(true)}
           >
             <Play className="size-4" />
             Testar
@@ -504,6 +506,15 @@ function ConteudoBuilder() {
         idsConhecidos={idsConhecidos}
         aoSelecionarNo={centralizarNo}
       />
+
+      {id && (
+        <DrawerChatTeste
+          flowId={id}
+          nomeFluxo={fluxo.name}
+          open={chatDeTesteAberto}
+          onOpenChange={setChatDeTesteAberto}
+        />
+      )}
     </div>
   )
 }
