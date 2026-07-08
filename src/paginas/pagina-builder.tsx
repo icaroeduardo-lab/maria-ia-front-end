@@ -21,7 +21,9 @@ import {
 import "@xyflow/react/dist/style.css"
 import { ArrowLeft, History, Play, Save, ShieldCheck } from "lucide-react"
 
+import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
 import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
+import { PainelAresta } from "@/components/builder/painel-aresta"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -77,6 +79,8 @@ const tiposDeNoDoCanvas = Object.fromEntries(
   TIPOS_DE_NO.map((tipo) => [tipo, NoDoEngine])
 )
 
+const tiposDeAresta = { rotulada: ArestaRotulada }
+
 function paraCanvas(fluxo: Fluxo): { nodes: Node[]; edges: Edge[] } {
   return {
     nodes: fluxo.nodes.map((no) => ({
@@ -90,6 +94,7 @@ function paraCanvas(fluxo: Fluxo): { nodes: Node[]; edges: Edge[] } {
       source: aresta.source,
       target: aresta.target,
       label: aresta.label,
+      type: "rotulada",
     })),
   }
 }
@@ -175,12 +180,53 @@ function ConteudoBuilder() {
     if (mudancas.some((m) => m.type === "remove")) setAlterado(true)
   }, [])
 
-  const aoConectar = React.useCallback((conexao: Connection) => {
-    setEdges((atuais) => addEdge(conexao, atuais))
-    setAlterado(true)
-  }, [])
+  const aoConectar = React.useCallback(
+    (conexao: Connection) => {
+      // Convenção sim/não: condição sobre pergunta sim_nao roteia por
+      // "true"/"false" (ids dos botões do WhatsApp) — sugerir ao conectar.
+      const origem = nodes.find((no) => no.id === conexao.source)
+      let label: string | undefined
+      if (origem?.type === "condicao") {
+        const dadosOrigem = origem.data as Record<string, unknown>
+        const pergunta = nodes.find(
+          (no) =>
+            no.type === "pergunta" &&
+            (no.data as Record<string, unknown>).chave === dadosOrigem.campo
+        )
+        if (
+          pergunta &&
+          (pergunta.data as Record<string, unknown>).tipoPergunta === "sim_nao"
+        ) {
+          const usados = new Set(
+            edges
+              .filter((aresta) => aresta.source === conexao.source)
+              .map((aresta) => aresta.label)
+          )
+          label = ["true", "false"].find((valor) => !usados.has(valor))
+        }
+      }
+      setEdges((atuais) =>
+        addEdge({ ...conexao, label, type: "rotulada" }, atuais)
+      )
+      setAlterado(true)
+    },
+    [nodes, edges]
+  )
 
   const noSelecionado = nodes.find((no) => no.selected)
+  const arestaSelecionada = edges.find((aresta) => aresta.selected)
+
+  function atualizarLabelDaAresta(valor: string) {
+    if (!arestaSelecionada) return
+    setEdges((atuais) =>
+      atuais.map((aresta) =>
+        aresta.id === arestaSelecionada.id
+          ? { ...aresta, label: valor.trim() === "" ? undefined : valor }
+          : aresta
+      )
+    )
+    setAlterado(true)
+  }
 
   function adicionarNo(
     tipo: TipoDeNo,
@@ -356,6 +402,7 @@ function ConteudoBuilder() {
             nodes={nodes}
             edges={edges}
             nodeTypes={tiposDeNoDoCanvas}
+            edgeTypes={tiposDeAresta}
             onNodesChange={aoMudarNodes}
             onEdgesChange={aoMudarEdges}
             onConnect={aoConectar}
@@ -366,14 +413,22 @@ function ConteudoBuilder() {
             <Controls />
           </ReactFlow>
         </div>
-        {noSelecionado && (
+        {noSelecionado ? (
           <PainelPropriedades
             key={noSelecionado.id}
             tipo={noSelecionado.type as TipoDeNo}
             dados={noSelecionado.data as Record<string, unknown>}
             aoAtualizar={atualizarDadosDoNo}
+            fluxoAtualId={id}
           />
-        )}
+        ) : arestaSelecionada ? (
+          <PainelAresta
+            key={arestaSelecionada.id}
+            aresta={arestaSelecionada}
+            nodes={nodes}
+            aoMudarLabel={atualizarLabelDaAresta}
+          />
+        ) : null}
       </div>
     </div>
   )
