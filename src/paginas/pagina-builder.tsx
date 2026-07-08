@@ -9,6 +9,8 @@ import {
   Handle,
   Position,
   ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -17,8 +19,10 @@ import {
   type NodeProps,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { ArrowLeft, History, Play, Plus, Save, ShieldCheck } from "lucide-react"
+import { ArrowLeft, History, Play, Save, ShieldCheck } from "lucide-react"
 
+import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
+import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -34,19 +38,7 @@ import {
   type Fluxo,
   type NoFluxo,
 } from "@/lib/fluxos"
-
-/** Tipos de nó do engine (guia §2.2). Paleta completa na issue #17. */
-const TIPOS_DE_NO = [
-  "mensagem",
-  "pergunta",
-  "condicao",
-  "classificar",
-  "ia",
-  "api",
-  "subfluxo",
-  "atribuir",
-  "encerrar",
-] as const
+import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 
 function resumoDoNo(data: Record<string, unknown>): string {
   for (const campo of ["texto", "chave", "campo", "prompt", "url", "refFlowId", "titulo"]) {
@@ -120,8 +112,17 @@ function novoIdDeNo(existentes: Set<string>): string {
 }
 
 export function PaginaBuilder() {
+  return (
+    <ReactFlowProvider>
+      <ConteudoBuilder />
+    </ReactFlowProvider>
+  )
+}
+
+function ConteudoBuilder() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { screenToFlowPosition } = useReactFlow()
 
   const [fluxo, setFluxo] = React.useState<Fluxo | null>(null)
   const [erroCarga, setErroCarga] = React.useState(false)
@@ -168,17 +169,46 @@ export function PaginaBuilder() {
     setAlterado(true)
   }, [])
 
-  function adicionarNo() {
+  const noSelecionado = nodes.find((no) => no.selected)
+
+  function adicionarNo(
+    tipo: TipoDeNo,
+    position?: { x: number; y: number }
+  ) {
     const idNovo = novoIdDeNo(new Set(nodes.map((no) => no.id)))
     setNodes((atuais) => [
-      ...atuais,
+      ...atuais.map((no) => ({ ...no, selected: false })),
       {
         id: idNovo,
-        type: "mensagem",
-        position: { x: 80 + atuais.length * 24, y: 80 + atuais.length * 24 },
+        type: tipo,
+        position:
+          position ?? { x: 80 + atuais.length * 24, y: 80 + atuais.length * 24 },
         data: {},
+        selected: true,
       },
     ])
+    setAlterado(true)
+  }
+
+  function aoSoltarNaTela(evento: React.DragEvent) {
+    const tipo = evento.dataTransfer.getData(MIME_TIPO_DE_NO) as TipoDeNo
+    if (!TIPOS_DE_NO.includes(tipo)) return
+    evento.preventDefault()
+    adicionarNo(
+      tipo,
+      screenToFlowPosition({ x: evento.clientX, y: evento.clientY })
+    )
+  }
+
+  function atualizarDadosDoNo(campo: string, valor: unknown) {
+    if (!noSelecionado) return
+    setNodes((atuais) =>
+      atuais.map((no) =>
+        no.id === noSelecionado.id
+          ? { ...no, data: { ...no.data, [campo]: valor } }
+          : no
+      )
+    )
     setAlterado(true)
   }
 
@@ -247,10 +277,6 @@ export function PaginaBuilder() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={adicionarNo}>
-            <Plus className="size-4" />
-            Nó
-          </Button>
           <Tooltip>
             <TooltipTrigger
               render={
@@ -303,20 +329,40 @@ export function PaginaBuilder() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={tiposDeNoDoCanvas}
-          onNodesChange={aoMudarNodes}
-          onEdgesChange={aoMudarEdges}
-          onConnect={aoConectar}
-          fitView
-          proOptions={{ hideAttribution: true }}
+      <div className="flex min-h-0 flex-1 gap-3">
+        <PaletaNos aoAdicionar={adicionarNo} />
+        <div
+          className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border"
+          onDragOver={(evento) => {
+            if (evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)) {
+              evento.preventDefault()
+              evento.dataTransfer.dropEffect = "move"
+            }
+          }}
+          onDrop={aoSoltarNaTela}
         >
-          <Background />
-          <Controls />
-        </ReactFlow>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={tiposDeNoDoCanvas}
+            onNodesChange={aoMudarNodes}
+            onEdgesChange={aoMudarEdges}
+            onConnect={aoConectar}
+            fitView
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
+        {noSelecionado && (
+          <PainelPropriedades
+            key={noSelecionado.id}
+            tipo={noSelecionado.type as TipoDeNo}
+            dados={noSelecionado.data as Record<string, unknown>}
+            aoAtualizar={atualizarDadosDoNo}
+          />
+        )}
       </div>
     </div>
   )
