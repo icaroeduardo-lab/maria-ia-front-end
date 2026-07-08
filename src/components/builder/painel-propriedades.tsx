@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { CampoImagem } from "@/components/builder/campo-imagem"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -83,7 +84,7 @@ function CamposDoTipo({
             rotulo="Chave"
             dados={dados}
             aoAtualizar={aoAtualizar}
-            dica="onde a resposta é gravada em dadosColetados"
+            dica="onde a resposta é gravada; pergunta com chave já preenchida é pulada pelo engine (skip-gate)"
           />
           <CampoSelect
             nome="tipoPergunta"
@@ -92,6 +93,29 @@ function CamposDoTipo({
             dados={dados}
             aoAtualizar={aoAtualizar}
           />
+          {dados.tipoPergunta === "opcoes" && (
+            <CampoLista
+              nome="opcoes"
+              rotulo="Opções"
+              dados={dados}
+              aoAtualizar={aoAtualizar}
+              dica="uma opção por linha, na ordem exibida ao assistido"
+            />
+          )}
+          <CampoImagem
+            valor={typeof dados.imagem === "string" ? dados.imagem : ""}
+            aoMudar={(url) => aoAtualizar("imagem", url)}
+          />
+          <CampoBool
+            nome="semReescrita"
+            rotulo="Sem reescrita"
+            dados={dados}
+            aoAtualizar={aoAtualizar}
+          />
+          <p className="-mt-2 text-xs text-muted-foreground">
+            texto fixo, a IA não reescreve — use em LGPD, links e textos
+            jurídicos que não podem variar
+          </p>
         </>
       )
     case "condicao":

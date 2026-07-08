@@ -51,12 +51,23 @@ function resumoDoNo(data: Record<string, unknown>): string {
 }
 
 function NoDoEngine({ type, data }: NodeProps) {
-  const resumo = resumoDoNo(data as Record<string, unknown>)
+  const dados = data as Record<string, unknown>
+  const resumo = resumoDoNo(dados)
+  // Skip-gate do engine: pergunta com chave já preenchida é pulada.
+  const temSkipGate =
+    type === "pergunta" &&
+    typeof dados.chave === "string" &&
+    dados.chave.trim() !== ""
   return (
     <div className="rounded-md border bg-background px-3 py-2 text-xs shadow-sm">
       <Handle type="target" position={Position.Top} />
       <span className="font-medium">{type}</span>
       {resumo && <span className="text-muted-foreground">: {resumo}</span>}
+      {temSkipGate && (
+        <span className="mt-1 block w-fit rounded-sm bg-amber-100 px-1 py-0.5 text-[10px] leading-none text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+          pula se já respondida
+        </span>
+      )}
       <Handle type="source" position={Position.Bottom} />
     </div>
   )
