@@ -17,6 +17,13 @@ dist-ssr
 !.env.example
 *.local
 
+# graphify: grafo de conhecimento (graph.json/graph.html/GRAPH_REPORT.md
+# e manifest.json ficam versionados p/ o time começar com o mapa pronto)
+graphify-out/cost.json
+graphify-out/cache/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

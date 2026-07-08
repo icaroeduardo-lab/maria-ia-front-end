@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from "react-router"
 
 import { LayoutPainel } from "@/components/layout-painel"
+import { PaginaBuilder } from "@/paginas/pagina-builder"
 import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
+import { PaginaFluxos } from "@/paginas/pagina-fluxos"
 import { PaginaNaoEncontrada } from "@/paginas/pagina-nao-encontrada"
 
 export function App() {
@@ -9,10 +11,12 @@ export function App() {
     <Routes>
       <Route element={<LayoutPainel />}>
         <Route index element={<Navigate to="/fluxos" replace />} />
+        <Route path="/fluxos" element={<PaginaFluxos />} />
+        <Route path="/fluxos/:id/builder" element={<PaginaBuilder />} />
         <Route
-          path="/fluxos"
+          path="/fluxos/:id/historico"
           element={
-            <PaginaEmConstrucao descricao="Lista e ativação de fluxos do chatbot — em desenvolvimento." />
+            <PaginaEmConstrucao descricao="Histórico de versões do fluxo — em desenvolvimento." />
           }
         />
         <Route

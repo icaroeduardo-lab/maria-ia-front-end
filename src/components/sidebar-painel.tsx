@@ -1,11 +1,4 @@
 import { NavLink, useLocation } from "react-router"
-import {
-  ChartPie,
-  MessagesSquare,
-  Settings,
-  Users,
-  Workflow,
-} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -19,14 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-
-export const itensNavegacao = [
-  { titulo: "Fluxos", url: "/fluxos", icone: Workflow },
-  { titulo: "Conversas", url: "/conversas", icone: MessagesSquare },
-  { titulo: "Assistidos", url: "/assistidos", icone: Users },
-  { titulo: "Configurações", url: "/configuracoes", icone: Settings },
-  { titulo: "Dashboard", url: "/dashboard", icone: ChartPie },
-]
+import { itensNavegacao } from "@/lib/navegacao"
 
 const ehProducao = !import.meta.env.VITE_API_URL.includes("localhost")
 

@@ -1,0 +1,520 @@
+import * as React from "react"
+import { useNavigate, useParams } from "react-router"
+import {
+  addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
+  Background,
+  Controls,
+  Handle,
+  Position,
+  ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+  type Connection,
+  type Edge,
+  type EdgeChange,
+  type Node,
+  type NodeChange,
+  type NodeProps,
+} from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
+import { ArrowLeft, History, Play, Save, ShieldCheck } from "lucide-react"
+
+import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
+import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
+import { PainelAresta } from "@/components/builder/painel-aresta"
+import { PainelPropriedades } from "@/components/builder/painel-propriedades"
+import { PainelValidacao } from "@/components/builder/painel-validacao"
+import { DrawerChatTeste } from "@/components/chat-teste/drawer-chat-teste"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ErroApi } from "@/lib/api"
+import { extrairChavesDoFluxo } from "@/lib/chaves-fluxo"
+import {
+  obterFluxo,
+  salvarFluxo,
+  validarFluxo,
+  type ArestaFluxo,
+  type Fluxo,
+  type NoFluxo,
+  type ResultadoValidacao,
+} from "@/lib/fluxos"
+import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
+import { cn } from "@/lib/utils"
+import { extrairIdDoNoDaMensagem } from "@/lib/validacao-fluxo"
+
+function resumoDoNo(data: Record<string, unknown>): string {
+  for (const campo of [
+    "texto",
+    "chave",
+    "campo",
+    "prompt",
+    "url",
+    "refFlowId",
+    "titulo",
+  ]) {
+    const valor = data[campo]
+    if (typeof valor === "string" && valor.trim()) {
+      return valor.length > 30 ? `${valor.slice(0, 30)}…` : valor
+    }
+  }
+  return ""
+}
+
+/** Nós citados em erros/avisos da última validação (id -> gravidade). */
+const ContextoValidacaoCanvas = React.createContext<{
+  erros: Set<string>
+  avisos: Set<string>
+}>({ erros: new Set(), avisos: new Set() })
+
+function NoDoEngine({ id, type, data }: NodeProps) {
+  const { erros, avisos } = React.useContext(ContextoValidacaoCanvas)
+  const dados = data as Record<string, unknown>
+  const resumo = resumoDoNo(dados)
+  // Skip-gate do engine: pergunta com chave já preenchida é pulada.
+  const temSkipGate =
+    type === "pergunta" &&
+    typeof dados.chave === "string" &&
+    dados.chave.trim() !== ""
+  const temErroDeValidacao = erros.has(id)
+  const temAvisoDeValidacao = !temErroDeValidacao && avisos.has(id)
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-background px-3 py-2 text-xs shadow-sm",
+        temErroDeValidacao && "border-2 border-destructive",
+        temAvisoDeValidacao && "border-2 border-amber-500"
+      )}
+    >
+      <Handle type="target" position={Position.Top} />
+      <span className="font-medium">{type}</span>
+      {resumo && <span className="text-muted-foreground">: {resumo}</span>}
+      {temSkipGate && (
+        <span className="mt-1 block w-fit rounded-sm bg-amber-100 px-1 py-0.5 text-[10px] leading-none text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+          pula se já respondida
+        </span>
+      )}
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  )
+}
+
+const tiposDeNoDoCanvas = Object.fromEntries(
+  TIPOS_DE_NO.map((tipo) => [tipo, NoDoEngine])
+)
+
+const tiposDeAresta = { rotulada: ArestaRotulada }
+
+function paraCanvas(fluxo: Fluxo): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: fluxo.nodes.map((no) => ({
+      id: no.id,
+      type: no.type,
+      position: no.position,
+      data: no.data,
+    })),
+    edges: fluxo.edges.map((aresta) => ({
+      id: aresta.id,
+      source: aresta.source,
+      target: aresta.target,
+      label: aresta.label,
+      type: "rotulada",
+    })),
+  }
+}
+
+function paraApi(
+  nodes: Node[],
+  edges: Edge[]
+): {
+  nodes: NoFluxo[]
+  edges: ArestaFluxo[]
+} {
+  return {
+    nodes: nodes.map((no) => ({
+      id: no.id,
+      type: no.type ?? "mensagem",
+      position: { x: no.position.x, y: no.position.y },
+      data: (no.data ?? {}) as Record<string, unknown>,
+    })),
+    edges: edges.map((aresta) => ({
+      id: aresta.id,
+      source: aresta.source,
+      target: aresta.target,
+      label: typeof aresta.label === "string" ? aresta.label : undefined,
+    })),
+  }
+}
+
+function novoIdDeNo(existentes: Set<string>): string {
+  let id: string
+  do {
+    id = `no_${Math.random().toString(36).slice(2, 8)}`
+  } while (existentes.has(id))
+  return id
+}
+
+export function PaginaBuilder() {
+  return (
+    <ReactFlowProvider>
+      <ConteudoBuilder />
+    </ReactFlowProvider>
+  )
+}
+
+function ConteudoBuilder() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { screenToFlowPosition, setCenter } = useReactFlow()
+
+  const [fluxo, setFluxo] = React.useState<Fluxo | null>(null)
+  const [erroCarga, setErroCarga] = React.useState(false)
+  const [nodes, setNodes] = React.useState<Node[]>([])
+  const [edges, setEdges] = React.useState<Edge[]>([])
+  const [alterado, setAlterado] = React.useState(false)
+  const [salvando, setSalvando] = React.useState(false)
+  const [conflito, setConflito] = React.useState(false)
+  const [erroSalvar, setErroSalvar] = React.useState(false)
+  const [resultadoValidacao, setResultadoValidacao] =
+    React.useState<ResultadoValidacao | null>(null)
+  const [validando, setValidando] = React.useState(false)
+  const [erroValidar, setErroValidar] = React.useState(false)
+  const [chatDeTesteAberto, setChatDeTesteAberto] = React.useState(false)
+
+  const carregar = React.useCallback(() => {
+    if (!id) return
+    obterFluxo(id)
+      .then((dados) => {
+        setFluxo(dados)
+        const canvas = paraCanvas(dados)
+        setNodes(canvas.nodes)
+        setEdges(canvas.edges)
+        setAlterado(false)
+        setConflito(false)
+        setErroCarga(false)
+      })
+      .catch(() => setErroCarga(true))
+  }, [id])
+
+  React.useEffect(() => {
+    carregar()
+  }, [carregar])
+
+  const aoMudarNodes = React.useCallback((mudancas: NodeChange[]) => {
+    setNodes((atuais) => applyNodeChanges(mudancas, atuais))
+    if (mudancas.some((m) => m.type === "position" || m.type === "remove")) {
+      setAlterado(true)
+    }
+  }, [])
+
+  const aoMudarEdges = React.useCallback((mudancas: EdgeChange[]) => {
+    setEdges((atuais) => applyEdgeChanges(mudancas, atuais))
+    if (mudancas.some((m) => m.type === "remove")) setAlterado(true)
+  }, [])
+
+  const aoConectar = React.useCallback(
+    (conexao: Connection) => {
+      // Convenção sim/não: condição sobre pergunta sim_nao roteia por
+      // "true"/"false" (ids dos botões do WhatsApp) — sugerir ao conectar.
+      const origem = nodes.find((no) => no.id === conexao.source)
+      let label: string | undefined
+      if (origem?.type === "condicao") {
+        const dadosOrigem = origem.data as Record<string, unknown>
+        const pergunta = nodes.find(
+          (no) =>
+            no.type === "pergunta" &&
+            (no.data as Record<string, unknown>).chave === dadosOrigem.campo
+        )
+        if (
+          pergunta &&
+          (pergunta.data as Record<string, unknown>).tipoPergunta === "sim_nao"
+        ) {
+          const usados = new Set(
+            edges
+              .filter((aresta) => aresta.source === conexao.source)
+              .map((aresta) => aresta.label)
+          )
+          label = ["true", "false"].find((valor) => !usados.has(valor))
+        }
+      }
+      setEdges((atuais) =>
+        addEdge({ ...conexao, label, type: "rotulada" }, atuais)
+      )
+      setAlterado(true)
+    },
+    [nodes, edges]
+  )
+
+  const noSelecionado = nodes.find((no) => no.selected)
+  const arestaSelecionada = edges.find((aresta) => aresta.selected)
+  const chaves = React.useMemo(() => extrairChavesDoFluxo(nodes), [nodes])
+
+  const idsConhecidos = React.useMemo(() => nodes.map((no) => no.id), [nodes])
+  const destaqueValidacao = React.useMemo(() => {
+    const erros = new Set<string>()
+    const avisos = new Set<string>()
+    for (const mensagem of resultadoValidacao?.erros ?? []) {
+      const idNo = extrairIdDoNoDaMensagem(mensagem, idsConhecidos)
+      if (idNo) erros.add(idNo)
+    }
+    for (const mensagem of resultadoValidacao?.avisos ?? []) {
+      const idNo = extrairIdDoNoDaMensagem(mensagem, idsConhecidos)
+      if (idNo) avisos.add(idNo)
+    }
+    return { erros, avisos }
+  }, [resultadoValidacao, idsConhecidos])
+
+  function validar() {
+    if (!id || validando) return
+    setValidando(true)
+    setErroValidar(false)
+    validarFluxo(id)
+      .then((resultado) => setResultadoValidacao(resultado))
+      .catch(() => setErroValidar(true))
+      .finally(() => setValidando(false))
+  }
+
+  function centralizarNo(idNo: string) {
+    const no = nodes.find((n) => n.id === idNo)
+    if (!no) return
+    setCenter(no.position.x, no.position.y, { zoom: 1, duration: 400 })
+  }
+
+  function atualizarLabelDaAresta(valor: string) {
+    if (!arestaSelecionada) return
+    setEdges((atuais) =>
+      atuais.map((aresta) =>
+        aresta.id === arestaSelecionada.id
+          ? { ...aresta, label: valor.trim() === "" ? undefined : valor }
+          : aresta
+      )
+    )
+    setAlterado(true)
+  }
+
+  function adicionarNo(tipo: TipoDeNo, position?: { x: number; y: number }) {
+    const idNovo = novoIdDeNo(new Set(nodes.map((no) => no.id)))
+    setNodes((atuais) => [
+      ...atuais.map((no) => ({ ...no, selected: false })),
+      {
+        id: idNovo,
+        type: tipo,
+        position: position ?? {
+          x: 80 + atuais.length * 24,
+          y: 80 + atuais.length * 24,
+        },
+        data: {},
+        selected: true,
+      },
+    ])
+    setAlterado(true)
+  }
+
+  function aoSoltarNaTela(evento: React.DragEvent) {
+    const tipo = evento.dataTransfer.getData(MIME_TIPO_DE_NO) as TipoDeNo
+    if (!TIPOS_DE_NO.includes(tipo)) return
+    evento.preventDefault()
+    adicionarNo(
+      tipo,
+      screenToFlowPosition({ x: evento.clientX, y: evento.clientY })
+    )
+  }
+
+  function atualizarDadosDoNo(campo: string, valor: unknown) {
+    if (!noSelecionado) return
+    setNodes((atuais) =>
+      atuais.map((no) =>
+        no.id === noSelecionado.id
+          ? { ...no, data: { ...no.data, [campo]: valor } }
+          : no
+      )
+    )
+    setAlterado(true)
+  }
+
+  function salvar() {
+    if (!id || !fluxo || salvando) return
+    setSalvando(true)
+    setErroSalvar(false)
+    const corpo = paraApi(nodes, edges)
+    salvarFluxo(id, {
+      name: fluxo.name,
+      nodes: corpo.nodes,
+      edges: corpo.edges,
+      updatedAt: fluxo.updatedAt,
+    })
+      .then((salvo) => {
+        setFluxo((atual) =>
+          atual
+            ? { ...atual, updatedAt: salvo?.updatedAt ?? atual.updatedAt }
+            : atual
+        )
+        setAlterado(false)
+        setSalvando(false)
+        validar()
+      })
+      .catch((erro) => {
+        if (erro instanceof ErroApi && erro.status === 409) setConflito(true)
+        else setErroSalvar(true)
+        setSalvando(false)
+      })
+  }
+
+  if (erroCarga) {
+    return (
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm text-destructive">
+          Não foi possível carregar o fluxo.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => carregar()}>
+          Tentar novamente
+        </Button>
+      </div>
+    )
+  }
+
+  if (!fluxo) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-[60vh] w-full" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-[calc(100dvh-7.5rem)] flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Voltar para a lista de fluxos"
+          onClick={() => navigate("/fluxos")}
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+        <h2 className="text-sm font-semibold">{fluxo.name}</h2>
+        {alterado && (
+          <span className="text-xs text-muted-foreground">
+            alterações não salvas
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={validando}
+            onClick={validar}
+          >
+            <ShieldCheck className="size-4" />
+            {validando ? "Validando..." : "Validar"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setChatDeTesteAberto(true)}
+          >
+            <Play className="size-4" />
+            Testar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/fluxos/${id}/historico`)}
+          >
+            <History className="size-4" />
+            Histórico
+          </Button>
+          <Button size="sm" disabled={!alterado || salvando} onClick={salvar}>
+            <Save className="size-4" />
+            {salvando ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </div>
+
+      {conflito && (
+        <div className="flex items-center justify-between rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          <span>
+            Alguém salvou este fluxo antes de você. Recarregue para ver a versão
+            atual — suas alterações locais serão descartadas.
+          </span>
+          <Button variant="outline" size="sm" onClick={() => carregar()}>
+            Recarregar
+          </Button>
+        </div>
+      )}
+
+      {erroSalvar && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Não foi possível salvar o fluxo. Tente novamente.
+        </div>
+      )}
+
+      <div className="flex min-h-0 flex-1 gap-3">
+        <PaletaNos aoAdicionar={adicionarNo} />
+        <div
+          className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border"
+          onDragOver={(evento) => {
+            if (evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)) {
+              evento.preventDefault()
+              evento.dataTransfer.dropEffect = "move"
+            }
+          }}
+          onDrop={aoSoltarNaTela}
+        >
+          <ContextoValidacaoCanvas.Provider value={destaqueValidacao}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={tiposDeNoDoCanvas}
+              edgeTypes={tiposDeAresta}
+              onNodesChange={aoMudarNodes}
+              onEdgesChange={aoMudarEdges}
+              onConnect={aoConectar}
+              fitView
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background />
+              <Controls />
+            </ReactFlow>
+          </ContextoValidacaoCanvas.Provider>
+        </div>
+        {noSelecionado ? (
+          <PainelPropriedades
+            key={noSelecionado.id}
+            tipo={noSelecionado.type as TipoDeNo}
+            dados={noSelecionado.data as Record<string, unknown>}
+            aoAtualizar={atualizarDadosDoNo}
+            fluxoAtualId={id}
+            chaves={chaves}
+          />
+        ) : arestaSelecionada ? (
+          <PainelAresta
+            key={arestaSelecionada.id}
+            aresta={arestaSelecionada}
+            nodes={nodes}
+            aoMudarLabel={atualizarLabelDaAresta}
+          />
+        ) : null}
+      </div>
+
+      <PainelValidacao
+        resultado={resultadoValidacao}
+        validando={validando}
+        erroValidar={erroValidar}
+        idsConhecidos={idsConhecidos}
+        aoSelecionarNo={centralizarNo}
+      />
+
+      {id && (
+        <DrawerChatTeste
+          flowId={id}
+          nomeFluxo={fluxo.name}
+          open={chatDeTesteAberto}
+          onOpenChange={setChatDeTesteAberto}
+        />
+      )}
+    </div>
+  )
+}
