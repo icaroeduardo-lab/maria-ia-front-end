@@ -1,20 +1,47 @@
-import { Button } from "@/components/ui/button"
+import { Navigate, Route, Routes } from "react-router"
+
+import { LayoutPainel } from "@/components/layout-painel"
+import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
+import { PaginaNaoEncontrada } from "@/paginas/pagina-nao-encontrada"
 
 export function App() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+    <Routes>
+      <Route element={<LayoutPainel />}>
+        <Route index element={<Navigate to="/fluxos" replace />} />
+        <Route
+          path="/fluxos"
+          element={
+            <PaginaEmConstrucao descricao="Lista e ativação de fluxos do chatbot — em desenvolvimento." />
+          }
+        />
+        <Route
+          path="/conversas"
+          element={
+            <PaginaEmConstrucao descricao="Acompanhamento das conversas dos assistidos — em desenvolvimento." />
+          }
+        />
+        <Route
+          path="/assistidos"
+          element={
+            <PaginaEmConstrucao descricao="Cadastro de assistidos — em desenvolvimento." />
+          }
+        />
+        <Route
+          path="/configuracoes"
+          element={
+            <PaginaEmConstrucao descricao="Configurações globais da IA — em desenvolvimento." />
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <PaginaEmConstrucao descricao="Métricas e analytics do atendimento — em desenvolvimento." />
+          }
+        />
+        <Route path="*" element={<PaginaNaoEncontrada />} />
+      </Route>
+    </Routes>
   )
 }
 
