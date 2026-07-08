@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { CampoImagem } from "@/components/builder/campo-imagem"
+import { CampoSubfluxo } from "@/components/builder/campo-subfluxo"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -28,10 +29,12 @@ export function PainelPropriedades({
   tipo,
   dados,
   aoAtualizar,
+  fluxoAtualId,
 }: {
   tipo: TipoDeNo
   dados: Dados
   aoAtualizar: (campo: string, valor: unknown) => void
+  fluxoAtualId?: string
 }) {
   const info = INFO_DOS_NOS[tipo]
 
@@ -43,7 +46,12 @@ export function PainelPropriedades({
           {info.rotulo} — {info.descricao}
         </p>
       </div>
-      <CamposDoTipo tipo={tipo} dados={dados} aoAtualizar={aoAtualizar} />
+      <CamposDoTipo
+        tipo={tipo}
+        dados={dados}
+        aoAtualizar={aoAtualizar}
+        fluxoAtualId={fluxoAtualId}
+      />
     </aside>
   )
 }
@@ -52,10 +60,12 @@ function CamposDoTipo({
   tipo,
   dados,
   aoAtualizar,
+  fluxoAtualId,
 }: {
   tipo: TipoDeNo
   dados: Dados
   aoAtualizar: (campo: string, valor: unknown) => void
+  fluxoAtualId?: string
 }) {
   switch (tipo) {
     case "mensagem":
@@ -179,12 +189,10 @@ function CamposDoTipo({
     case "subfluxo":
       return (
         <>
-          <CampoTexto
-            nome="refFlowId"
-            rotulo="Fluxo referenciado (id)"
-            dados={dados}
-            aoAtualizar={aoAtualizar}
-            dica="seletor de fluxo chega na issue #19"
+          <CampoSubfluxo
+            refFlowId={texto(dados, "refFlowId")}
+            fluxoAtualId={fluxoAtualId}
+            aoMudar={(id) => aoAtualizar("refFlowId", id)}
           />
           <CampoTexto nome="titulo" rotulo="Título" dados={dados} aoAtualizar={aoAtualizar} />
         </>
