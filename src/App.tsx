@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router"
 
+import { GateToken } from "@/components/gate-token"
 import { LayoutPainel } from "@/components/layout-painel"
 import { PaginaBuilder } from "@/paginas/pagina-builder"
 import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
@@ -8,7 +9,8 @@ import { PaginaNaoEncontrada } from "@/paginas/pagina-nao-encontrada"
 
 export function App() {
   return (
-    <Routes>
+    <GateToken>
+      <Routes>
       <Route element={<LayoutPainel />}>
         <Route index element={<Navigate to="/fluxos" replace />} />
         <Route path="/fluxos" element={<PaginaFluxos />} />
@@ -45,7 +47,8 @@ export function App() {
         />
         <Route path="*" element={<PaginaNaoEncontrada />} />
       </Route>
-    </Routes>
+      </Routes>
+    </GateToken>
   )
 }
 
