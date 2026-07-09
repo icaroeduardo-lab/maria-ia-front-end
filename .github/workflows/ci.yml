@@ -71,3 +71,55 @@ jobs:
 
       - name: Build (inclui typecheck via tsc -b)
         run: pnpm build
+
+  deploy:
+    name: Deploy em produção (S3 + CloudFront)
+    needs: lint-e-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      # build SEM VITE_API_TOKEN: o bundle publicado não carrega credencial —
+      # o painel pede o token na primeira carga (gate-token).
+      - name: Build de produção
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: pnpm build
+
+      # trava de segurança: nenhum JWT pode ter vazado pro bundle
+      - name: Verificar bundle sem credencial
+        run: |
+          if grep -rq "eyJhbGciOi" dist/; then
+            echo "::error::JWT encontrado no bundle — deploy abortado."
+            exit 1
+          fi
+          echo "Bundle limpo (sem credencial)."
+
+      - name: Credenciais AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Publicar no S3
+        run: aws s3 sync dist/ "s3://${{ vars.PAINEL_BUCKET }}" --delete
+
+      - name: Invalidar cache do CloudFront
+        run: aws cloudfront create-invalidation --distribution-id "${{ vars.PAINEL_DISTRIBUTION_ID }}" --paths "/*"

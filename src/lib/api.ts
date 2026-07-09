@@ -6,9 +6,9 @@
  */
 
 import { definirErroGlobal } from "@/lib/erro-global"
+import { limparToken, obterToken, tokenVeioDoNavegador } from "@/lib/token"
 
 const BASE_URL = import.meta.env.VITE_API_URL
-const TOKEN = import.meta.env.VITE_API_TOKEN
 
 export class ErroApi extends Error {
   readonly status: number
@@ -44,7 +44,7 @@ async function requisicao<T>(
   opcoes: { corpo?: unknown; query?: Query; formData?: FormData } = {}
 ): Promise<T> {
   const headers: HeadersInit = {
-    Authorization: `Bearer ${TOKEN}`,
+    Authorization: `Bearer ${obterToken() ?? ""}`,
   }
   let body: BodyInit | undefined
 
@@ -65,7 +65,12 @@ async function requisicao<T>(
   const texto = await resposta.text()
   const dados: unknown = texto ? JSON.parse(texto) : null
 
-  if (resposta.status === 401) definirErroGlobal("token-invalido")
+  if (resposta.status === 401) {
+    definirErroGlobal("token-invalido")
+    // token colado pelo gestor expirou/é inválido → limpa e o gate de token
+    // reaparece pedindo um novo. Token de .env (dev) não é limpo (é estático).
+    if (tokenVeioDoNavegador()) limparToken()
+  }
   else if (resposta.status === 503) definirErroGlobal("banco-nao-configurado")
   else definirErroGlobal(null)
 
