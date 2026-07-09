@@ -28,6 +28,16 @@ import { PainelHistorico } from "@/components/builder/painel-historico"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { PainelValidacao } from "@/components/builder/painel-validacao"
 import { DrawerChatTeste } from "@/components/chat-teste/drawer-chat-teste"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErroApi } from "@/lib/api"
@@ -36,6 +46,7 @@ import {
   listarVersoes,
   obterFluxo,
   obterVersao,
+  restaurarVersao,
   salvarFluxo,
   validarFluxo,
   type ArestaFluxo,
@@ -196,6 +207,11 @@ function ConteudoBuilder() {
     nodes: Node[]
     edges: Edge[]
   } | null>(null)
+  const [versaoParaRestaurar, setVersaoParaRestaurar] = React.useState<
+    number | null
+  >(null)
+  const [restaurando, setRestaurando] = React.useState(false)
+  const [erroRestaurar, setErroRestaurar] = React.useState(false)
 
   const carregar = React.useCallback(() => {
     if (!id) return
@@ -234,6 +250,28 @@ function ConteudoBuilder() {
   function sairDoPreview() {
     setPreviewVersao(null)
     setPreviewCanvas(null)
+  }
+
+  function restaurar() {
+    if (!id || versaoParaRestaurar === null || restaurando) return
+    setRestaurando(true)
+    setErroRestaurar(false)
+    restaurarVersao(id, versaoParaRestaurar)
+      .then((restaurado) => {
+        setFluxo(restaurado)
+        const canvas = paraCanvas(restaurado)
+        setNodes(canvas.nodes)
+        setEdges(canvas.edges)
+        setAlterado(false)
+        setResultadoValidacao(null)
+        sairDoPreview()
+        setVersaoParaRestaurar(null)
+        // restaurar gera uma versão nova (snapshot do estado anterior) —
+        // invalida a lista pra recarregar na próxima abertura do painel.
+        setVersoes(null)
+      })
+      .catch(() => setErroRestaurar(true))
+      .finally(() => setRestaurando(false))
   }
 
   React.useEffect(() => {
@@ -552,6 +590,7 @@ function ConteudoBuilder() {
             atualizadoEm={fluxo.updatedAt}
             versaoEmPreview={previewVersao}
             aoVer={verVersao}
+            aoRestaurar={setVersaoParaRestaurar}
             aoFechar={() => setHistoricoAberto(false)}
           />
         ) : noSelecionado ? (
@@ -589,6 +628,58 @@ function ConteudoBuilder() {
           onOpenChange={setChatDeTesteAberto}
         />
       )}
+
+      <AlertDialog
+        open={versaoParaRestaurar !== null}
+        onOpenChange={(aberto) => {
+          if (!aberto && !restaurando) setVersaoParaRestaurar(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Restaurar v{versaoParaRestaurar}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {fluxo.active ? (
+                <>
+                  Este fluxo está <strong>ATIVO</strong> — restaurar troca o
+                  comportamento em <strong>PRODUÇÃO em runtime</strong>, sem
+                  deploy. O estado atual vira uma versão nova antes de aplicar o
+                  restore, então isso é reversível: dá pra restaurar essa versão
+                  nova depois, se precisar desfazer.
+                </>
+              ) : (
+                <>
+                  O conteúdo atual do fluxo será substituído pelo da versão v
+                  {versaoParaRestaurar}. Isso é reversível: o estado atual vira
+                  uma versão nova antes de aplicar o restore.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {erroRestaurar && (
+            <p className="text-sm text-destructive">
+              Não foi possível restaurar. Tente novamente.
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restaurando}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={fluxo.active ? "destructive" : "default"}
+              disabled={restaurando}
+              onClick={(evento) => {
+                evento.preventDefault()
+                restaurar()
+              }}
+            >
+              {restaurando ? "Restaurando..." : "Restaurar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -109,6 +109,14 @@ export function obterVersao(id: string, versao: number) {
   return api.get<VersaoCompleta>(`/admin/flows/${id}/versoes/${versao}`)
 }
 
+/**
+ * Restaura o fluxo pra uma versão antiga — reversível: o backend grava o
+ * estado atual como uma versão nova antes de aplicar o restore.
+ */
+export function restaurarVersao(id: string, versao: number) {
+  return api.post<Fluxo>(`/admin/flows/${id}/versoes/${versao}/restaurar`)
+}
+
 /** Ativa o fluxo em PRODUÇÃO (runtime); o backend desativa os demais. */
 export function ativarFluxo(id: string) {
   return api.post<void>(`/admin/flows/${id}/activate`)

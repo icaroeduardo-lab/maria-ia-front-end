@@ -1,4 +1,4 @@
-import { Eye, X } from "lucide-react"
+import { Eye, RotateCcw, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -29,6 +29,7 @@ export function PainelHistorico({
   atualizadoEm,
   versaoEmPreview,
   aoVer,
+  aoRestaurar,
   aoFechar,
 }: {
   versoes: VersaoResumo[] | null
@@ -36,6 +37,7 @@ export function PainelHistorico({
   atualizadoEm?: string
   versaoEmPreview: number | null
   aoVer: (versao: number) => void
+  aoRestaurar: (versao: number) => void
   aoFechar: () => void
 }) {
   const proximaVersao = (versoes?.[0]?.versao ?? 0) + 1
@@ -86,23 +88,38 @@ export function PainelHistorico({
           )}
 
           {versoes.map((item) => (
-            <button
+            <div
               key={item.versao}
-              type="button"
-              onClick={() => aoVer(item.versao)}
               className={cn(
-                "flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left text-xs hover:bg-muted",
+                "flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-xs",
                 versaoEmPreview === item.versao && "border-primary bg-muted"
               )}
             >
-              <span>
+              <span className="min-w-0">
                 <span className="font-medium">v{item.versao}</span>
-                <span className="block text-muted-foreground">
+                <span className="block truncate text-muted-foreground">
                   {item.autor} · {formatarData(item.criadoEm)}
                 </span>
               </span>
-              <Eye className="size-3.5 shrink-0 text-muted-foreground" />
-            </button>
+              <span className="flex shrink-0 gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Ver versão ${item.versao}`}
+                  onClick={() => aoVer(item.versao)}
+                >
+                  <Eye className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Restaurar versão ${item.versao}`}
+                  onClick={() => aoRestaurar(item.versao)}
+                >
+                  <RotateCcw className="size-3.5" />
+                </Button>
+              </span>
+            </div>
           ))}
         </div>
       )}
