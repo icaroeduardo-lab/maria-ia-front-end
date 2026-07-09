@@ -142,6 +142,27 @@ function paraCanvas(dados: { nodes: NoFluxo[]; edges: ArestaFluxo[] }): {
   }
 }
 
+// tipos válidos de nó, derivados do contrato (NoFluxo["type"])
+const TIPOS_NO = [
+  "mensagem",
+  "pergunta",
+  "condicao",
+  "classificar",
+  "ia",
+  "api",
+  "subgrafo",
+  "subfluxo",
+  "atribuir",
+  "encerrar",
+] as const satisfies readonly NoFluxo["type"][]
+
+/** Estreita o type livre do React Flow pro union do contrato (fallback: mensagem). */
+function tipoNo(t: string | undefined): NoFluxo["type"] {
+  return (TIPOS_NO as readonly string[]).includes(t ?? "")
+    ? (t as NoFluxo["type"])
+    : "mensagem"
+}
+
 function paraApi(
   nodes: Node[],
   edges: Edge[]
@@ -152,7 +173,7 @@ function paraApi(
   return {
     nodes: nodes.map((no) => ({
       id: no.id,
-      type: no.type ?? "mensagem",
+      type: tipoNo(no.type),
       position: { x: no.position.x, y: no.position.y },
       data: (no.data ?? {}) as Record<string, unknown>,
     })),
