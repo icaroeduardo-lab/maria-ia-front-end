@@ -20,3 +20,15 @@ import type { paths } from "@/api/types.gen"
 type FlowResp =
   paths["/admin/flows/{id}"]["get"]["responses"]["200"]["content"]["application/json"]
 ```
+
+## Guards no CI
+
+O CI verifica o contrato em dois níveis (ver `.github/workflows/ci.yml`):
+
+1. **Contrato íntegro (bloqueante)** — regenera os types e falha se
+   `types.gen.ts` não corresponder ao `docs/openapi.yaml` local. Editou o
+   yaml? Rode `pnpm gerar:api` e commite junto.
+2. **Contrato atualizado (aviso)** — compara o `docs/openapi.yaml` local com
+   a main do back; divergiu, o job passa mas o summary orienta rodar o
+   playbook `/sync-contrato`. Falha de rede ao baixar o yaml do back não
+   quebra o build (aviso "não verificado").
