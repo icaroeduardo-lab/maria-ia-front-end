@@ -29,5 +29,45 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Guard 1 (bloqueante): types.gen.ts precisa corresponder ao openapi.yaml
+      # local — pega yaml editado sem regenerar ou types editado à mão.
+      - name: Contrato íntegro (types ↔ openapi.yaml)
+        run: |
+          pnpm gerar:api
+          if ! git diff --exit-code src/api/types.gen.ts; then
+            echo "::error::src/api/types.gen.ts não corresponde a docs/openapi.yaml — rode 'pnpm gerar:api' e commite."
+            exit 1
+          fi
+
+      # Guard 2 (aviso, não bloqueia): compara o openapi.yaml local com a main
+      # do back. Divergiu → aviso pra rodar /sync-contrato (ação consciente,
+      # com typecheck dos impactos — por isso não falha o build).
+      - name: Contrato atualizado com o back (aviso)
+        run: |
+          URL="https://raw.githubusercontent.com/icaroeduardo-lab/maria-ia/main/docs/openapi.yaml"
+          if ! curl -sfL --max-time 15 "$URL" -o /tmp/openapi-back.yaml; then
+            echo "::warning::Não foi possível baixar o contrato do back — verificação de drift pulada."
+            echo "⚠️ **Drift de contrato não verificado** (falha ao baixar o yaml do back)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if diff -q docs/openapi.yaml /tmp/openapi-back.yaml > /dev/null; then
+            echo "Contrato sincronizado com o back (main)."
+          else
+            echo "::warning::docs/openapi.yaml divergiu da main do back — rode /sync-contrato."
+            {
+              echo "## ⚠️ Contrato desatualizado"
+              echo ""
+              echo "O \`docs/openapi.yaml\` local diverge da main do back (\`maria-ia\`)."
+              echo "Rode o playbook \`/sync-contrato\` (copia o yaml + \`pnpm gerar:api\` + typecheck dos impactos)."
+              echo ""
+              echo "<details><summary>Diff (local → back)</summary>"
+              echo ""
+              echo '```diff'
+              diff -u docs/openapi.yaml /tmp/openapi-back.yaml | head -120 || true
+              echo '```'
+              echo "</details>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Build (inclui typecheck via tsc -b)
         run: pnpm build
