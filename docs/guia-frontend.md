@@ -9,13 +9,18 @@
 
 ## 1. Autenticação
 
+> **DECISÃO (jul/2026): sem tela de login no MVP do painel.** O backend segue
+> exigindo JWT em `/admin` (exposto publicamente). O painel usa **token fixo
+> por env** (`VITE_API_TOKEN`), gerado via `POST /auth/login` com o admin seed.
+> Auth completa (login + papéis + página de usuários) vira card próprio quando
+> o painel for pra uso real dos gestores.
+
 | O quê | Como |
 |---|---|
-| Login | `POST /auth/login` `{ email, senha }` → `{ token, user }` |
-| Sessão | JWT expira em **8h** — tratar 401 globalmente e voltar ao login |
+| Token | `VITE_API_TOKEN` no `.env` (gerar via `POST /auth/login` `{ email, senha }`) |
+| Expiração | JWT expira em **8h** — 401 global → banner "token expirado, renove o VITE_API_TOKEN" (não é tela de login) |
 | Envio | header `Authorization: Bearer <token>` em tudo sob `/admin` |
-| Papéis | `admin` (tudo) e `viewer` (leitura) — **esconder** botões de mutação p/ viewer; a API já bloqueia server-side (`exigirAdmin`) |
-| Quem sou | `GET /auth/me` → dados do usuário logado |
+| Papéis | adiado — usar sempre o token do admin seed por enquanto |
 
 Sem banco configurado a API responde **503** em `/admin/*` — exibir aviso
 "banco não configurado" em vez de tela quebrada.
