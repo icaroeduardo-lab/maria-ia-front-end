@@ -263,12 +263,22 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Lista (sem nodes/edges — resumo) */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            active: boolean;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        }[];
+                    };
                 };
             };
         };
@@ -288,7 +298,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Flow"];
+                    };
                 };
             };
         };
@@ -350,8 +362,8 @@ export interface paths {
                 content: {
                     "application/json": {
                         name?: string;
-                        nodes?: Record<string, never>[];
-                        edges?: Record<string, never>[];
+                        nodes?: components["schemas"]["FlowNode"][];
+                        edges?: components["schemas"]["FlowEdge"][];
                         /**
                          * Format: date-time
                          * @description Lock otimista (opcional): updatedAt carregado pelo cliente. Se o fluxo mudou desde então, a API responde 409 — recarregue antes de salvar. Omitido = save incondicional.
@@ -361,12 +373,14 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
+                /** @description Fluxo atualizado */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Flow"];
+                    };
                 };
                 /** @description Não encontrado */
                 404: {
@@ -375,12 +389,18 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Conflito: fluxo alterado por outro editor ({ erro, updatedAt }) */
+                /** @description Conflito: fluxo alterado por outro editor */
                 409: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            erro: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
                 };
             };
         };
@@ -430,12 +450,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description [{ versao, name, autor, criadoEm }] (desc) */
+                /** @description Versões, mais recente primeiro */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["FlowVersionResumo"][];
+                    };
                 };
                 /** @description Não encontrado */
                 404: {
@@ -474,12 +496,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description FlowVersion completa */
+                /** @description Versão completa */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["FlowVersionCompleta"];
+                    };
                 };
                 /** @description Não encontrada */
                 404: {
@@ -520,12 +544,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Flow restaurado */
+                /** @description Fluxo restaurado */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Flow"];
+                    };
                 };
                 /** @description Não encontrada */
                 404: {
@@ -1744,12 +1770,51 @@ export interface components {
             }[];
             lgpdAceito?: boolean;
         };
+        FlowNode: {
+            /** @description Estável — mudar reseta o cache de reescrita */
+            id: string;
+            /** @enum {string} */
+            type: "mensagem" | "pergunta" | "condicao" | "classificar" | "ia" | "api" | "subgrafo" | "subfluxo" | "atribuir" | "encerrar";
+            position: {
+                x: number;
+                y: number;
+            };
+            /** @description Campos por tipo de nó — ver docs/guia-frontend.md §2.2 */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        FlowEdge: {
+            id: string;
+            source: string;
+            target: string;
+            /** @description Valor esperado em condicao/classificar; '*' = default */
+            label?: string;
+        };
         Flow: {
-            id?: string;
-            name?: string;
-            nodes?: Record<string, never>[];
-            edges?: Record<string, never>[];
-            active?: boolean;
+            id: string;
+            name: string;
+            nodes: components["schemas"]["FlowNode"][];
+            edges: components["schemas"]["FlowEdge"][];
+            active: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        FlowVersionResumo: {
+            versao: number;
+            name: string;
+            /** @description email de quem salvou */
+            autor?: string | null;
+            /** Format: date-time */
+            criadoEm: string;
+        };
+        FlowVersionCompleta: components["schemas"]["FlowVersionResumo"] & {
+            id: string;
+            flowId: string;
+            nodes: components["schemas"]["FlowNode"][];
+            edges: components["schemas"]["FlowEdge"][];
         };
         ProcessosConsultaReq: {
             /** @description CPF só dígitos */

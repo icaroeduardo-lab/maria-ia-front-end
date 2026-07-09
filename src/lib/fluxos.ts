@@ -5,34 +5,22 @@
  */
 
 import { api } from "@/lib/api"
+import type { components, paths } from "@/api/types.gen"
 
-export interface FluxoResumo {
-  id: string
-  name: string
-  active: boolean
-  createdAt?: string
-  updatedAt?: string
-}
+/**
+ * Tipos derivados do contrato gerado (src/api/types.gen.ts) — fonte única.
+ * Não redefinir shapes à mão aqui: mudou o contrato → pnpm gerar:api e o
+ * typecheck aponta os impactos.
+ */
+export type FluxoResumo =
+  paths["/admin/flows"]["get"]["responses"]["200"]["content"]["application/json"][number]
 
 /** Nó do grafo — id estável e position preservado (contrato do engine). */
-export interface NoFluxo {
-  id: string
-  type: string
-  position: { x: number; y: number }
-  data: Record<string, unknown>
-}
+export type NoFluxo = components["schemas"]["FlowNode"]
 
-export interface ArestaFluxo {
-  id: string
-  source: string
-  target: string
-  label?: string
-}
+export type ArestaFluxo = components["schemas"]["FlowEdge"]
 
-export interface Fluxo extends FluxoResumo {
-  nodes: NoFluxo[]
-  edges: ArestaFluxo[]
-}
+export type Fluxo = components["schemas"]["Flow"]
 
 export function listarFluxos() {
   return api.get<FluxoResumo[]>("/admin/flows")
@@ -78,27 +66,16 @@ export function validarFluxo(id: string) {
 }
 
 /**
- * Histórico de versões (docs/guia-frontend.md §4, item resolvido — ainda
- * não documentado em docs/openapi.yaml, contrato confirmado em produção).
+ * Histórico de versões (docs/guia-frontend.md §4; contrato em docs/openapi.yaml).
  *
  * Cada save gera um snapshot automático no backend com o estado ANTERIOR
  * ao save, não o resultado dele — a versão mais recente da lista nunca é
  * o fluxo carregado agora no builder, e sim o estado de antes do último
  * save. O estado atual só vira uma versão formal no próximo save.
  */
-export interface VersaoResumo {
-  versao: number
-  name: string
-  autor: string
-  criadoEm: string
-}
+export type VersaoResumo = components["schemas"]["FlowVersionResumo"]
 
-export interface VersaoCompleta extends VersaoResumo {
-  id: string
-  flowId: string
-  nodes: NoFluxo[]
-  edges: ArestaFluxo[]
-}
+export type VersaoCompleta = components["schemas"]["FlowVersionCompleta"]
 
 /** Mais recente primeiro. */
 export function listarVersoes(id: string) {
