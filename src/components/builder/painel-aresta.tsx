@@ -15,6 +15,10 @@ function sugestoesDeLabel(origem: Node | undefined, nodes: Node[]): string[] {
   if (!origem) return []
   const dados = origem.data as Record<string, unknown>
 
+  // pergunta sim_nao roteia direto pelas saídas rotuladas (card #20260113)
+  if (origem.type === "pergunta" && dados.tipoPergunta === "sim_nao")
+    return ["true", "false"]
+
   if (origem.type === "condicao") {
     const pergunta = nodes.find(
       (no) =>

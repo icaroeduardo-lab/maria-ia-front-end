@@ -321,28 +321,31 @@ function ConteudoBuilder() {
 
   const aoConectar = React.useCallback(
     (conexao: Connection) => {
-      // Convenção sim/não: condição sobre pergunta sim_nao roteia por
-      // "true"/"false" (ids dos botões do WhatsApp) — sugerir ao conectar.
+      // Convenção sim/não: roteia por "true"/"false" (ids dos botões do
+      // WhatsApp). Vale pra condição sobre pergunta sim_nao E pra aresta
+      // saindo direto da pergunta sim_nao (engine roteia — card #20260113).
       const origem = nodes.find((no) => no.id === conexao.source)
-      let label: string | undefined
-      if (origem?.type === "condicao") {
+      const ehPerguntaSimNao = (no?: Node) =>
+        no?.type === "pergunta" &&
+        (no.data as Record<string, unknown>).tipoPergunta === "sim_nao"
+      let roteiaSimNao = ehPerguntaSimNao(origem)
+      if (!roteiaSimNao && origem?.type === "condicao") {
         const dadosOrigem = origem.data as Record<string, unknown>
         const pergunta = nodes.find(
           (no) =>
             no.type === "pergunta" &&
             (no.data as Record<string, unknown>).chave === dadosOrigem.campo
         )
-        if (
-          pergunta &&
-          (pergunta.data as Record<string, unknown>).tipoPergunta === "sim_nao"
-        ) {
-          const usados = new Set(
-            edges
-              .filter((aresta) => aresta.source === conexao.source)
-              .map((aresta) => aresta.label)
-          )
-          label = ["true", "false"].find((valor) => !usados.has(valor))
-        }
+        roteiaSimNao = ehPerguntaSimNao(pergunta)
+      }
+      let label: string | undefined
+      if (roteiaSimNao) {
+        const usados = new Set(
+          edges
+            .filter((aresta) => aresta.source === conexao.source)
+            .map((aresta) => aresta.label)
+        )
+        label = ["true", "false"].find((valor) => !usados.has(valor))
       }
       setEdges((atuais) =>
         addEdge({ ...conexao, label, type: "rotulada" }, atuais)
