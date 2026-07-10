@@ -19,6 +19,9 @@ function sugestoesDeLabel(origem: Node | undefined, nodes: Node[]): string[] {
   if (origem.type === "pergunta" && dados.tipoPergunta === "sim_nao")
     return ["true", "false"]
 
+  // nó api roteia falha/timeout/status ≥ 400 pela saída "erro" (card #20260115)
+  if (origem.type === "api") return ["erro"]
+
   if (origem.type === "condicao") {
     const pergunta = nodes.find(
       (no) =>
@@ -99,6 +102,12 @@ export function PainelAresta({
             <p className="text-xs text-muted-foreground">
               pergunta sim/não responde com os ids “true”/“false” dos botões
               do WhatsApp — não usar “sim”/“não”
+            </p>
+          )}
+          {sugestoes[0] === "erro" && (
+            <p className="text-xs text-muted-foreground">
+              a saída “erro” recebe falha/timeout/status ≥ 400 da API; a
+              outra saída (sem label) é o caminho feliz
             </p>
           )}
         </div>

@@ -347,6 +347,18 @@ function ConteudoBuilder() {
         )
         label = ["true", "false"].find((valor) => !usados.has(valor))
       }
+      // nó api: a 2ª saída é a rota de falha — nasce rotulada "erro"
+      // (engine roteia status ≥ 400/timeout por ela — card #20260115)
+      if (origem?.type === "api") {
+        const existentes = edges.filter(
+          (aresta) => aresta.source === conexao.source
+        )
+        if (
+          existentes.length > 0 &&
+          !existentes.some((aresta) => aresta.label === "erro")
+        )
+          label = "erro"
+      }
       setEdges((atuais) =>
         addEdge({ ...conexao, label, type: "rotulada" }, atuais)
       )
