@@ -353,6 +353,8 @@ function ConteudoBuilder() {
   )
 
   const noSelecionado = nodes.find((no) => no.selected)
+  const [confirmandoExclusaoNo, setConfirmandoExclusaoNo] =
+    React.useState(false)
   const arestaSelecionada = edges.find((aresta) => aresta.selected)
   const chaves = React.useMemo(() => extrairChavesDoFluxo(nodes), [nodes])
 
@@ -396,6 +398,32 @@ function ConteudoBuilder() {
           : aresta
       )
     )
+    setAlterado(true)
+  }
+
+  function excluirNo(idNo: string) {
+    setNodes((atuais) => atuais.filter((no) => no.id !== idNo))
+    setEdges((atuais) =>
+      atuais.filter((a) => a.source !== idNo && a.target !== idNo)
+    )
+    setAlterado(true)
+    setConfirmandoExclusaoNo(false)
+  }
+
+  /** Nó com conexões pede confirmação (as arestas somem junto). */
+  function pedirExclusaoDoNo() {
+    if (!noSelecionado) return
+    const conexoes = edges.filter(
+      (a) => a.source === noSelecionado.id || a.target === noSelecionado.id
+    ).length
+    if (conexoes > 0) setConfirmandoExclusaoNo(true)
+    else excluirNo(noSelecionado.id)
+  }
+
+  function excluirArestaSelecionada() {
+    if (!arestaSelecionada) return
+    const idAresta = arestaSelecionada.id
+    setEdges((atuais) => atuais.filter((a) => a.id !== idAresta))
     setAlterado(true)
   }
 
@@ -620,6 +648,7 @@ function ConteudoBuilder() {
             tipo={noSelecionado.type as TipoDeNo}
             dados={noSelecionado.data as Record<string, unknown>}
             aoAtualizar={atualizarDadosDoNo}
+            aoExcluir={pedirExclusaoDoNo}
             fluxoAtualId={id}
             chaves={chaves}
           />
@@ -629,6 +658,7 @@ function ConteudoBuilder() {
             aresta={arestaSelecionada}
             nodes={nodes}
             aoMudarLabel={atualizarLabelDaAresta}
+            aoExcluir={excluirArestaSelecionada}
           />
         ) : null}
       </div>
@@ -640,6 +670,30 @@ function ConteudoBuilder() {
         idsConhecidos={idsConhecidos}
         aoSelecionarNo={centralizarNo}
       />
+
+      <AlertDialog
+        open={confirmandoExclusaoNo}
+        onOpenChange={setConfirmandoExclusaoNo}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir nó e suas conexões?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este nó tem conexões — elas serão removidas junto. A exclusão
+              só vale depois de salvar o fluxo (e o histórico de versões
+              permite restaurar).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => noSelecionado && excluirNo(noSelecionado.id)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {id && (
         <DrawerChatTeste
