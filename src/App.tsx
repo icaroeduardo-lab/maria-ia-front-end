@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router"
 import { GateToken } from "@/components/gate-token"
 import { LayoutPainel } from "@/components/layout-painel"
 import { PaginaBuilder } from "@/paginas/pagina-builder"
+import { PaginaConversaDetalhe } from "@/paginas/pagina-conversa-detalhe"
 import { PaginaConversas } from "@/paginas/pagina-conversas"
 import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
 import { PaginaFluxos } from "@/paginas/pagina-fluxos"
@@ -25,9 +26,7 @@ export function App() {
         <Route path="/conversas" element={<PaginaConversas />} />
         <Route
           path="/conversas/:sessionId"
-          element={
-            <PaginaEmConstrucao descricao="Detalhe da conversa — em desenvolvimento." />
-          }
+          element={<PaginaConversaDetalhe />}
         />
         <Route
           path="/assistidos"

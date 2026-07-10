@@ -27,6 +27,7 @@ import {
   type PaginaConversas,
   type StatusConversa,
 } from "@/lib/conversas"
+import { formatarDataHora } from "@/lib/utils"
 
 /** Sentinela dos selects pra "sem filtro" (base-ui não tem clear nativo). */
 const TODOS = "todos"
@@ -48,16 +49,6 @@ const ROTULO_STATUS: Record<StatusConversa, string> = {
   active: "Ativa",
   completed: "Concluída",
   abandoned: "Abandonada",
-}
-
-function formatarData(iso?: string | null): string {
-  if (!iso) return "—"
-  const data = new Date(iso)
-  if (Number.isNaN(data.getTime())) return "—"
-  return data.toLocaleString("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  })
 }
 
 function BadgeStatus({ status }: { status: StatusConversa }) {
@@ -275,10 +266,10 @@ export function PaginaConversas() {
                       <BadgeStatus status={conversa.status} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatarData(conversa.startedAt)}
+                      {formatarDataHora(conversa.startedAt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatarData(conversa.updatedAt)}
+                      {formatarDataHora(conversa.updatedAt)}
                     </TableCell>
                   </TableRow>
                 ))}
