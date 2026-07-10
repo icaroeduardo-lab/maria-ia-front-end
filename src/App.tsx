@@ -4,6 +4,7 @@ import { GateToken } from "@/components/gate-token"
 import { LayoutPainel } from "@/components/layout-painel"
 import { PaginaBuilder } from "@/paginas/pagina-builder"
 import { PaginaConversaDetalhe } from "@/paginas/pagina-conversa-detalhe"
+import { PaginaAssistidos } from "@/paginas/pagina-assistidos"
 import { PaginaConversas } from "@/paginas/pagina-conversas"
 import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
 import { PaginaFluxos } from "@/paginas/pagina-fluxos"
@@ -28,12 +29,7 @@ export function App() {
           path="/conversas/:sessionId"
           element={<PaginaConversaDetalhe />}
         />
-        <Route
-          path="/assistidos"
-          element={
-            <PaginaEmConstrucao descricao="Cadastro de assistidos — em desenvolvimento." />
-          }
-        />
+        <Route path="/assistidos" element={<PaginaAssistidos />} />
         <Route
           path="/configuracoes"
           element={
