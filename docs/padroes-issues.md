@@ -8,7 +8,7 @@ Todas as issues devem ser claras, acionáveis, testáveis e fornecer contexto su
 
 ## Rastreio com o Coilab
 
-Issue derivada de um card do Coilab recebe a label `card-<numero>` (ex: `card-20260106`; cor `7c3aed`, descrição = nome do card — criar a label se não existir) e cita o card no corpo. Issues sem card correspondente não levam label de card. Isso permite filtrar todo o trabalho de um card: `gh issue list --label card-20260106 --state all`.
+Issue derivada de um card do Coilab recebe a label `#<numero-do-card>` (ex: `#20260106`; cor `7c3aed`, descrição = nome do card — criar a label se não existir) e cita o card no corpo. Issues sem card correspondente não levam label de card. Isso permite filtrar todo o trabalho de um card: `gh issue list --label '#20260106' --state all`.
 
 ## Princípios Gerais
 
