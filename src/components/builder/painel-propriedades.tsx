@@ -300,10 +300,20 @@ function CamposDoTipo({
       )
     case "encerrar":
       return (
-        <p className="text-xs text-muted-foreground">
-          Sem campos: envia os dados coletados à DPERJ e responde a mensagem
-          final com protocolo.
-        </p>
+        <>
+          <p className="text-xs text-muted-foreground">
+            Envia os dados coletados à DPERJ e responde a mensagem final.
+          </p>
+          <CampoInterpolavel
+            as="textarea"
+            nome="texto"
+            rotulo="Mensagem de despedida (opcional)"
+            valor={texto(dados, "texto")}
+            onChange={(v) => aoAtualizar("texto", v)}
+            chaves={[{ chave: "protocolo", origem: "encerrar" }, ...chaves]}
+            dica="Vazio = mensagem padrão do sistema com o protocolo. Use {{protocolo}} para incluir o número na sua mensagem."
+          />
+        </>
       )
   }
 }
