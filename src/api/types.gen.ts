@@ -683,7 +683,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lista conversas (filtros status/categoria/channel, paginado) */
+        /** Lista conversas (filtros status/categoria/channel, paginado; itens SEM PII) */
         get: {
             parameters: {
                 query?: {
@@ -698,12 +698,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description { total, page, itens[] } */
+                /** @description Página de conversas (select enxuto, sem PII) */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ConversasPage"];
+                    };
                 };
             };
         };
@@ -734,12 +736,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Conversa completa com PII mascarada */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ConversaDetalhe"];
+                    };
                 };
                 /** @description Não encontrada */
                 404: {
@@ -777,12 +781,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Mensagens da conversa (content blocks) */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["HistoricoResp"];
+                    };
                 };
             };
         };
@@ -815,12 +821,16 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description { assistido } */
+                /** @description Dados completos do assistido (acesso registrado em auditoria) */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            assistido: components["schemas"]["Assistido"] | null;
+                        };
+                    };
                 };
             };
         };
@@ -837,22 +847,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Lista assistidos (mascarados) */
+        /** Lista assistidos (mascarados; busca por cpf/nome) */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    busca?: string;
+                    page?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Página de assistidos com PII mascarada */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["AssistidosPage"];
+                    };
                 };
             };
         };
@@ -867,12 +882,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Assistido criado */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Assistido"];
+                    };
                 };
             };
         };
@@ -903,8 +920,17 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Dados completos (acesso auditado) */
                 200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Assistido"];
+                    };
+                };
+                /** @description Não encontrado */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -924,8 +950,17 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Assistido atualizado */
                 200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Assistido"];
+                    };
+                };
+                /** @description Não encontrado */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -977,16 +1012,18 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Config atual + texto padrão do estilo */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ConfigIA"];
+                    };
                 };
             };
         };
-        /** Atualiza config global (admin) */
+        /** Atualiza config global (admin) — invalida o cache de reescrita */
         put: {
             parameters: {
                 query?: never;
@@ -994,14 +1031,23 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        estiloPrompt?: string;
+                        conversacional?: boolean;
+                    };
+                };
+            };
             responses: {
-                /** @description OK */
+                /** @description Config persistida */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ConfigIA"];
+                    };
                 };
             };
         };
@@ -1081,12 +1127,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Resumo analítico (30 dias na série diária) */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["AnalyticsSummary"];
+                    };
                 };
             };
         };
@@ -1108,19 +1156,23 @@ export interface paths {
         /** Log de auditoria (admin) — quem revelou PII */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    page?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description Página da trilha de auditoria */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["AuditPage"];
+                    };
                 };
             };
         };
@@ -1850,6 +1902,131 @@ export interface components {
         };
         CpfReq: {
             cpf: string;
+        };
+        /** @description Configuração global da IA (singleton id=default) */
+        ConfigIA: {
+            /** @description Preâmbulo de estilo aplicado a TODA fala da IA (vazio = usa o padrão) */
+            estiloPrompt: string;
+            /** @description Liga/desliga a reescrita acolhedora das perguntas */
+            conversacional: boolean;
+            /** @description Texto padrão do estilo (só no GET — alimenta o "restaurar padrão") */
+            padrao?: string;
+            id?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        /** @description Item da listagem — select enxuto, SEM PII (LGPD) */
+        ConversaResumo: {
+            id: string;
+            sessionId: string;
+            /** @description whatsapp | web */
+            channel: string;
+            flowId?: string | null;
+            /** @description active | completed | abandoned */
+            status: string;
+            categoria?: string | null;
+            ultimaEtapa?: string | null;
+            protocoloDperj?: string | null;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            completedAt?: string | null;
+        };
+        ConversasPage: {
+            total: number;
+            page: number;
+            itens: components["schemas"]["ConversaResumo"][];
+        };
+        ConversaDetalhe: components["schemas"]["ConversaResumo"] & {
+            dadosColetados?: {
+                [key: string]: unknown;
+            };
+            resumo?: string | null;
+            /** @description assistido dentro de metadados vem MASCARADO (LGPD); completo só via /revelar */
+            metadados?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        MensagemHistorico: {
+            /** @description human | ai */
+            role: string;
+            /** @description string ou array de content blocks (text, image_url, boolean, options, cta_url) */
+            content: unknown;
+        };
+        HistoricoResp: {
+            messages: components["schemas"]["MensagemHistorico"][];
+        };
+        /** @description Nas listagens os campos de PII vêm MASCARADOS; completos só no detalhe (auditado) e no /revelar */
+        Assistido: {
+            id: string;
+            cpf: string;
+            nome: string;
+            dataNascimento?: string | null;
+            nomeMae?: string | null;
+            situacao: string;
+            municipio?: string | null;
+            uf?: string | null;
+            telefone?: string | null;
+            email?: string | null;
+            cep?: string | null;
+            bairro?: string | null;
+            logradouro?: string | null;
+            numero?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        AssistidosPage: {
+            total: number;
+            page: number;
+            itens: components["schemas"]["Assistido"][];
+        };
+        AnalyticsSummary: {
+            total: number;
+            /** @description 0..1 */
+            taxaConclusao: number;
+            porStatus: {
+                status: string;
+                total: number;
+            }[];
+            porCategoria: {
+                categoria: string;
+                total: number;
+            }[];
+            porCanal: {
+                canal: string;
+                total: number;
+            }[];
+            abandonoPorEtapa: {
+                etapa: string;
+                total: number;
+            }[];
+            /** @description últimos 30 dias */
+            serieDiaria: {
+                dia: string;
+                total: number;
+                concluidas: number;
+            }[];
+        };
+        AuditLogItem: {
+            id: string;
+            userId: string;
+            userEmail: string;
+            /** @description revelar */
+            acao: string;
+            /** @description assistido | conversa */
+            alvoTipo: string;
+            alvoId: string;
+            /** Format: date-time */
+            criadoEm: string;
+        };
+        AuditPage: {
+            total: number;
+            page: number;
+            itens: components["schemas"]["AuditLogItem"][];
         };
     };
     responses: never;
