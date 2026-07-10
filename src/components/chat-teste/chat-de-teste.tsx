@@ -1,6 +1,7 @@
 import * as React from "react"
 import { RotateCcw, Send } from "lucide-react"
 
+import { BolhaMensagem } from "@/components/chat-teste/bolha-mensagem"
 import { PainelDebug } from "@/components/chat-teste/painel-debug"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,11 +10,8 @@ import { ErroApi } from "@/lib/api"
 import {
   enviarMensagemDeTeste,
   gerarSessionIdDeTeste,
-  normalizarConteudo,
-  type BlocoConteudo,
   type MensagemTestChat,
 } from "@/lib/test-chat"
-import { cn } from "@/lib/utils"
 
 /**
  * Conteúdo do chat de teste (docs/guia-frontend.md §2.3 e §3) — sem
@@ -177,129 +175,3 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
   )
 }
 
-function BolhaMensagem({
-  mensagem,
-  interativo,
-  aoResponder,
-}: {
-  mensagem: MensagemTestChat
-  interativo: boolean
-  aoResponder: (mensagemApi: string, rotuloExibido?: string) => void
-}) {
-  const doUsuario = mensagem.role === "user"
-  return (
-    <div
-      className={cn(
-        "flex max-w-[85%] flex-col gap-1.5 rounded-2xl px-3 py-2 text-sm",
-        doUsuario
-          ? "self-end bg-primary text-primary-foreground"
-          : "self-start bg-muted text-foreground"
-      )}
-    >
-      {normalizarConteudo(mensagem.content).map((bloco, indice) => (
-        <Bloco
-          key={indice}
-          bloco={bloco}
-          interativo={interativo}
-          aoResponder={aoResponder}
-        />
-      ))}
-    </div>
-  )
-}
-
-function Bloco({
-  bloco,
-  interativo,
-  aoResponder,
-}: {
-  bloco: BlocoConteudo
-  interativo: boolean
-  aoResponder: (mensagemApi: string, rotuloExibido?: string) => void
-}) {
-  switch (bloco.type) {
-    case "text":
-      return <p>{renderizarComNegrito(bloco.text)}</p>
-
-    case "image_url":
-      return (
-        <img
-          src={bloco.image_url.url}
-          alt=""
-          className="max-h-64 w-full rounded-lg object-cover"
-        />
-      )
-
-    case "boolean":
-      // trueLabel/falseLabel só confirmam a existência dos dois botões — o
-      // rótulo é fixo "Sim"/"Não" (docs/guia-frontend.md §3).
-      return (
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!interativo}
-            onClick={() => aoResponder("true", "Sim")}
-          >
-            Sim
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!interativo}
-            onClick={() => aoResponder("false", "Não")}
-          >
-            Não
-          </Button>
-        </div>
-      )
-
-    case "options":
-      return (
-        <div className="flex flex-col gap-1">
-          {bloco.options.map((opcao) => (
-            <Button
-              key={opcao}
-              type="button"
-              size="sm"
-              variant="outline"
-              className="justify-start"
-              disabled={!interativo}
-              onClick={() => aoResponder(opcao)}
-            >
-              {opcao}
-            </Button>
-          ))}
-        </div>
-      )
-
-    case "cta_url":
-      return (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            window.open(bloco.url, "_blank", "noopener,noreferrer")
-          }
-        >
-          {bloco.text}
-        </Button>
-      )
-  }
-}
-
-/**
- * Markdown leve: negrito (docs/guia-frontend.md §3). A produção usa
- * asterisco único (estilo WhatsApp, ex: "protocolo *MARIA-2026*"), não
- * o `**duplo**` do exemplo da doc — aceita os dois.
- */
-function renderizarComNegrito(texto: string): React.ReactNode {
-  const partes = texto.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
-  return partes.map((parte, indice) => {
-    const negrito = /^\*{1,2}([^*]+)\*{1,2}$/.exec(parte)
-    return negrito ? <strong key={indice}>{negrito[1]}</strong> : parte
-  })
-}

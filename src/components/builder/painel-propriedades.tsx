@@ -3,6 +3,9 @@ import * as React from "react"
 import { CampoImagem } from "@/components/builder/campo-imagem"
 import { CampoInterpolavel } from "@/components/builder/campo-interpolavel"
 import { CampoSubfluxo } from "@/components/builder/campo-subfluxo"
+import { Trash2 } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -31,12 +34,15 @@ export function PainelPropriedades({
   tipo,
   dados,
   aoAtualizar,
+  aoExcluir,
   fluxoAtualId,
   chaves,
 }: {
   tipo: TipoDeNo
   dados: Dados
   aoAtualizar: (campo: string, valor: unknown) => void
+  /** Excluir o nó (o builder confirma antes se houver conexões). */
+  aoExcluir: () => void
   fluxoAtualId?: string
   chaves: ChaveDoFluxo[]
 }) {
@@ -57,6 +63,15 @@ export function PainelPropriedades({
         fluxoAtualId={fluxoAtualId}
         chaves={chaves}
       />
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-auto text-destructive hover:text-destructive"
+        onClick={aoExcluir}
+      >
+        <Trash2 />
+        Excluir nó
+      </Button>
     </aside>
   )
 }

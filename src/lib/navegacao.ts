@@ -1,6 +1,7 @@
 import {
   ChartPie,
   MessagesSquare,
+  ScrollText,
   Settings,
   Users,
   Workflow,
@@ -12,4 +13,5 @@ export const itensNavegacao = [
   { titulo: "Assistidos", url: "/assistidos", icone: Users },
   { titulo: "Configurações", url: "/configuracoes", icone: Settings },
   { titulo: "Dashboard", url: "/dashboard", icone: ChartPie },
+  { titulo: "Auditoria", url: "/auditoria", icone: ScrollText },
 ]

@@ -34,3 +34,10 @@ graphify-out/.graphify_root
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code — artefatos locais (não versionar)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# impeccable (hook local — cache e config pessoais)
+.impeccable/

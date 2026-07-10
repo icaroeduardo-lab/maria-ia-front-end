@@ -1,14 +1,22 @@
 import { Navigate, Route, Routes } from "react-router"
 
+import { GateToken } from "@/components/gate-token"
 import { LayoutPainel } from "@/components/layout-painel"
 import { PaginaBuilder } from "@/paginas/pagina-builder"
+import { PaginaConfiguracoes } from "@/paginas/pagina-configuracoes"
+import { PaginaDashboard } from "@/paginas/pagina-dashboard"
+import { PaginaConversaDetalhe } from "@/paginas/pagina-conversa-detalhe"
+import { PaginaAuditoria } from "@/paginas/pagina-auditoria"
+import { PaginaAssistidos } from "@/paginas/pagina-assistidos"
+import { PaginaConversas } from "@/paginas/pagina-conversas"
 import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
 import { PaginaFluxos } from "@/paginas/pagina-fluxos"
 import { PaginaNaoEncontrada } from "@/paginas/pagina-nao-encontrada"
 
 export function App() {
   return (
-    <Routes>
+    <GateToken>
+      <Routes>
       <Route element={<LayoutPainel />}>
         <Route index element={<Navigate to="/fluxos" replace />} />
         <Route path="/fluxos" element={<PaginaFluxos />} />
@@ -19,33 +27,19 @@ export function App() {
             <PaginaEmConstrucao descricao="Histórico de versões do fluxo — em desenvolvimento." />
           }
         />
+        <Route path="/conversas" element={<PaginaConversas />} />
         <Route
-          path="/conversas"
-          element={
-            <PaginaEmConstrucao descricao="Acompanhamento das conversas dos assistidos — em desenvolvimento." />
-          }
+          path="/conversas/:sessionId"
+          element={<PaginaConversaDetalhe />}
         />
-        <Route
-          path="/assistidos"
-          element={
-            <PaginaEmConstrucao descricao="Cadastro de assistidos — em desenvolvimento." />
-          }
-        />
-        <Route
-          path="/configuracoes"
-          element={
-            <PaginaEmConstrucao descricao="Configurações globais da IA — em desenvolvimento." />
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <PaginaEmConstrucao descricao="Métricas e analytics do atendimento — em desenvolvimento." />
-          }
-        />
+        <Route path="/assistidos" element={<PaginaAssistidos />} />
+        <Route path="/configuracoes" element={<PaginaConfiguracoes />} />
+        <Route path="/dashboard" element={<PaginaDashboard />} />
+        <Route path="/auditoria" element={<PaginaAuditoria />} />
         <Route path="*" element={<PaginaNaoEncontrada />} />
       </Route>
-    </Routes>
+      </Routes>
+    </GateToken>
   )
 }
 

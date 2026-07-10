@@ -24,21 +24,36 @@ import { ArrowLeft, History, Play, Save, ShieldCheck } from "lucide-react"
 import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
 import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
 import { PainelAresta } from "@/components/builder/painel-aresta"
+import { PainelHistorico } from "@/components/builder/painel-historico"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { PainelValidacao } from "@/components/builder/painel-validacao"
 import { DrawerChatTeste } from "@/components/chat-teste/drawer-chat-teste"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErroApi } from "@/lib/api"
 import { extrairChavesDoFluxo } from "@/lib/chaves-fluxo"
 import {
+  listarVersoes,
   obterFluxo,
+  obterVersao,
+  restaurarVersao,
   salvarFluxo,
   validarFluxo,
   type ArestaFluxo,
   type Fluxo,
   type NoFluxo,
   type ResultadoValidacao,
+  type VersaoResumo,
 } from "@/lib/fluxos"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 import { cn } from "@/lib/utils"
@@ -106,15 +121,18 @@ const tiposDeNoDoCanvas = Object.fromEntries(
 
 const tiposDeAresta = { rotulada: ArestaRotulada }
 
-function paraCanvas(fluxo: Fluxo): { nodes: Node[]; edges: Edge[] } {
+function paraCanvas(dados: { nodes: NoFluxo[]; edges: ArestaFluxo[] }): {
+  nodes: Node[]
+  edges: Edge[]
+} {
   return {
-    nodes: fluxo.nodes.map((no) => ({
+    nodes: dados.nodes.map((no) => ({
       id: no.id,
       type: no.type,
       position: no.position,
       data: no.data,
     })),
-    edges: fluxo.edges.map((aresta) => ({
+    edges: dados.edges.map((aresta) => ({
       id: aresta.id,
       source: aresta.source,
       target: aresta.target,
@@ -122,6 +140,27 @@ function paraCanvas(fluxo: Fluxo): { nodes: Node[]; edges: Edge[] } {
       type: "rotulada",
     })),
   }
+}
+
+// tipos válidos de nó, derivados do contrato (NoFluxo["type"])
+const TIPOS_NO = [
+  "mensagem",
+  "pergunta",
+  "condicao",
+  "classificar",
+  "ia",
+  "api",
+  "subgrafo",
+  "subfluxo",
+  "atribuir",
+  "encerrar",
+] as const satisfies readonly NoFluxo["type"][]
+
+/** Estreita o type livre do React Flow pro union do contrato (fallback: mensagem). */
+function tipoNo(t: string | undefined): NoFluxo["type"] {
+  return (TIPOS_NO as readonly string[]).includes(t ?? "")
+    ? (t as NoFluxo["type"])
+    : "mensagem"
 }
 
 function paraApi(
@@ -134,7 +173,7 @@ function paraApi(
   return {
     nodes: nodes.map((no) => ({
       id: no.id,
-      type: no.type ?? "mensagem",
+      type: tipoNo(no.type),
       position: { x: no.position.x, y: no.position.y },
       data: (no.data ?? {}) as Record<string, unknown>,
     })),
@@ -181,6 +220,19 @@ function ConteudoBuilder() {
   const [validando, setValidando] = React.useState(false)
   const [erroValidar, setErroValidar] = React.useState(false)
   const [chatDeTesteAberto, setChatDeTesteAberto] = React.useState(false)
+  const [historicoAberto, setHistoricoAberto] = React.useState(false)
+  const [versoes, setVersoes] = React.useState<VersaoResumo[] | null>(null)
+  const [erroVersoes, setErroVersoes] = React.useState(false)
+  const [previewVersao, setPreviewVersao] = React.useState<number | null>(null)
+  const [previewCanvas, setPreviewCanvas] = React.useState<{
+    nodes: Node[]
+    edges: Edge[]
+  } | null>(null)
+  const [versaoParaRestaurar, setVersaoParaRestaurar] = React.useState<
+    number | null
+  >(null)
+  const [restaurando, setRestaurando] = React.useState(false)
+  const [erroRestaurar, setErroRestaurar] = React.useState(false)
 
   const carregar = React.useCallback(() => {
     if (!id) return
@@ -197,21 +249,75 @@ function ConteudoBuilder() {
       .catch(() => setErroCarga(true))
   }, [id])
 
+  function abrirHistorico() {
+    setHistoricoAberto(true)
+    if (!id || versoes !== null) return
+    setErroVersoes(false)
+    listarVersoes(id)
+      .then(setVersoes)
+      .catch(() => setErroVersoes(true))
+  }
+
+  function verVersao(versao: number) {
+    if (!id) return
+    obterVersao(id, versao)
+      .then((dados) => {
+        setPreviewVersao(versao)
+        setPreviewCanvas(paraCanvas(dados))
+      })
+      .catch(() => setErroVersoes(true))
+  }
+
+  function sairDoPreview() {
+    setPreviewVersao(null)
+    setPreviewCanvas(null)
+  }
+
+  function restaurar() {
+    if (!id || versaoParaRestaurar === null || restaurando) return
+    setRestaurando(true)
+    setErroRestaurar(false)
+    restaurarVersao(id, versaoParaRestaurar)
+      .then((restaurado) => {
+        setFluxo(restaurado)
+        const canvas = paraCanvas(restaurado)
+        setNodes(canvas.nodes)
+        setEdges(canvas.edges)
+        setAlterado(false)
+        setResultadoValidacao(null)
+        sairDoPreview()
+        setVersaoParaRestaurar(null)
+        // restaurar gera uma versão nova (snapshot do estado anterior) —
+        // invalida a lista pra recarregar na próxima abertura do painel.
+        setVersoes(null)
+      })
+      .catch(() => setErroRestaurar(true))
+      .finally(() => setRestaurando(false))
+  }
+
   React.useEffect(() => {
     carregar()
   }, [carregar])
 
-  const aoMudarNodes = React.useCallback((mudancas: NodeChange[]) => {
-    setNodes((atuais) => applyNodeChanges(mudancas, atuais))
-    if (mudancas.some((m) => m.type === "position" || m.type === "remove")) {
-      setAlterado(true)
-    }
-  }, [])
+  const aoMudarNodes = React.useCallback(
+    (mudancas: NodeChange[]) => {
+      if (previewCanvas) return
+      setNodes((atuais) => applyNodeChanges(mudancas, atuais))
+      if (mudancas.some((m) => m.type === "position" || m.type === "remove")) {
+        setAlterado(true)
+      }
+    },
+    [previewCanvas]
+  )
 
-  const aoMudarEdges = React.useCallback((mudancas: EdgeChange[]) => {
-    setEdges((atuais) => applyEdgeChanges(mudancas, atuais))
-    if (mudancas.some((m) => m.type === "remove")) setAlterado(true)
-  }, [])
+  const aoMudarEdges = React.useCallback(
+    (mudancas: EdgeChange[]) => {
+      if (previewCanvas) return
+      setEdges((atuais) => applyEdgeChanges(mudancas, atuais))
+      if (mudancas.some((m) => m.type === "remove")) setAlterado(true)
+    },
+    [previewCanvas]
+  )
 
   const aoConectar = React.useCallback(
     (conexao: Connection) => {
@@ -247,6 +353,8 @@ function ConteudoBuilder() {
   )
 
   const noSelecionado = nodes.find((no) => no.selected)
+  const [confirmandoExclusaoNo, setConfirmandoExclusaoNo] =
+    React.useState(false)
   const arestaSelecionada = edges.find((aresta) => aresta.selected)
   const chaves = React.useMemo(() => extrairChavesDoFluxo(nodes), [nodes])
 
@@ -290,6 +398,32 @@ function ConteudoBuilder() {
           : aresta
       )
     )
+    setAlterado(true)
+  }
+
+  function excluirNo(idNo: string) {
+    setNodes((atuais) => atuais.filter((no) => no.id !== idNo))
+    setEdges((atuais) =>
+      atuais.filter((a) => a.source !== idNo && a.target !== idNo)
+    )
+    setAlterado(true)
+    setConfirmandoExclusaoNo(false)
+  }
+
+  /** Nó com conexões pede confirmação (as arestas somem junto). */
+  function pedirExclusaoDoNo() {
+    if (!noSelecionado) return
+    const conexoes = edges.filter(
+      (a) => a.source === noSelecionado.id || a.target === noSelecionado.id
+    ).length
+    if (conexoes > 0) setConfirmandoExclusaoNo(true)
+    else excluirNo(noSelecionado.id)
+  }
+
+  function excluirArestaSelecionada() {
+    if (!arestaSelecionada) return
+    const idAresta = arestaSelecionada.id
+    setEdges((atuais) => atuais.filter((a) => a.id !== idAresta))
     setAlterado(true)
   }
 
@@ -404,7 +538,7 @@ function ConteudoBuilder() {
           <Button
             variant="outline"
             size="sm"
-            disabled={validando}
+            disabled={validando || !!previewCanvas}
             onClick={validar}
           >
             <ShieldCheck className="size-4" />
@@ -418,20 +552,32 @@ function ConteudoBuilder() {
             <Play className="size-4" />
             Testar
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/fluxos/${id}/historico`)}
-          >
+          <Button variant="outline" size="sm" onClick={abrirHistorico}>
             <History className="size-4" />
             Histórico
           </Button>
-          <Button size="sm" disabled={!alterado || salvando} onClick={salvar}>
+          <Button
+            size="sm"
+            disabled={!alterado || salvando || !!previewCanvas}
+            onClick={salvar}
+          >
             <Save className="size-4" />
             {salvando ? "Salvando..." : "Salvar"}
           </Button>
         </div>
       </div>
+
+      {previewCanvas && (
+        <div className="flex items-center justify-between rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          <span>
+            Vendo v{previewVersao} — somente leitura. Nada aqui é salvo até você
+            restaurar esta versão.
+          </span>
+          <Button variant="outline" size="sm" onClick={sairDoPreview}>
+            Voltar ao atual
+          </Button>
+        </div>
+      )}
 
       {conflito && (
         <div className="flex items-center justify-between rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
@@ -452,26 +598,32 @@ function ConteudoBuilder() {
       )}
 
       <div className="flex min-h-0 flex-1 gap-3">
-        <PaletaNos aoAdicionar={adicionarNo} />
+        {!previewCanvas && <PaletaNos aoAdicionar={adicionarNo} />}
         <div
           className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border"
           onDragOver={(evento) => {
-            if (evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)) {
+            if (
+              !previewCanvas &&
+              evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)
+            ) {
               evento.preventDefault()
               evento.dataTransfer.dropEffect = "move"
             }
           }}
-          onDrop={aoSoltarNaTela}
+          onDrop={previewCanvas ? undefined : aoSoltarNaTela}
         >
           <ContextoValidacaoCanvas.Provider value={destaqueValidacao}>
             <ReactFlow
-              nodes={nodes}
-              edges={edges}
+              nodes={previewCanvas?.nodes ?? nodes}
+              edges={previewCanvas?.edges ?? edges}
               nodeTypes={tiposDeNoDoCanvas}
               edgeTypes={tiposDeAresta}
               onNodesChange={aoMudarNodes}
               onEdgesChange={aoMudarEdges}
               onConnect={aoConectar}
+              nodesDraggable={!previewCanvas}
+              nodesConnectable={!previewCanvas}
+              elementsSelectable={!previewCanvas}
               fitView
               proOptions={{ hideAttribution: true }}
             >
@@ -480,12 +632,23 @@ function ConteudoBuilder() {
             </ReactFlow>
           </ContextoValidacaoCanvas.Provider>
         </div>
-        {noSelecionado ? (
+        {historicoAberto ? (
+          <PainelHistorico
+            versoes={versoes}
+            erro={erroVersoes}
+            atualizadoEm={fluxo.updatedAt}
+            versaoEmPreview={previewVersao}
+            aoVer={verVersao}
+            aoRestaurar={setVersaoParaRestaurar}
+            aoFechar={() => setHistoricoAberto(false)}
+          />
+        ) : noSelecionado ? (
           <PainelPropriedades
             key={noSelecionado.id}
             tipo={noSelecionado.type as TipoDeNo}
             dados={noSelecionado.data as Record<string, unknown>}
             aoAtualizar={atualizarDadosDoNo}
+            aoExcluir={pedirExclusaoDoNo}
             fluxoAtualId={id}
             chaves={chaves}
           />
@@ -495,6 +658,7 @@ function ConteudoBuilder() {
             aresta={arestaSelecionada}
             nodes={nodes}
             aoMudarLabel={atualizarLabelDaAresta}
+            aoExcluir={excluirArestaSelecionada}
           />
         ) : null}
       </div>
@@ -507,6 +671,30 @@ function ConteudoBuilder() {
         aoSelecionarNo={centralizarNo}
       />
 
+      <AlertDialog
+        open={confirmandoExclusaoNo}
+        onOpenChange={setConfirmandoExclusaoNo}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir nó e suas conexões?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este nó tem conexões — elas serão removidas junto. A exclusão
+              só vale depois de salvar o fluxo (e o histórico de versões
+              permite restaurar).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => noSelecionado && excluirNo(noSelecionado.id)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {id && (
         <DrawerChatTeste
           flowId={id}
@@ -515,6 +703,58 @@ function ConteudoBuilder() {
           onOpenChange={setChatDeTesteAberto}
         />
       )}
+
+      <AlertDialog
+        open={versaoParaRestaurar !== null}
+        onOpenChange={(aberto) => {
+          if (!aberto && !restaurando) setVersaoParaRestaurar(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Restaurar v{versaoParaRestaurar}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {fluxo.active ? (
+                <>
+                  Este fluxo está <strong>ATIVO</strong> — restaurar troca o
+                  comportamento em <strong>PRODUÇÃO em runtime</strong>, sem
+                  deploy. O estado atual vira uma versão nova antes de aplicar o
+                  restore, então isso é reversível: dá pra restaurar essa versão
+                  nova depois, se precisar desfazer.
+                </>
+              ) : (
+                <>
+                  O conteúdo atual do fluxo será substituído pelo da versão v
+                  {versaoParaRestaurar}. Isso é reversível: o estado atual vira
+                  uma versão nova antes de aplicar o restore.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {erroRestaurar && (
+            <p className="text-sm text-destructive">
+              Não foi possível restaurar. Tente novamente.
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restaurando}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={fluxo.active ? "destructive" : "default"}
+              disabled={restaurando}
+              onClick={(evento) => {
+                evento.preventDefault()
+                restaurar()
+              }}
+            >
+              {restaurando ? "Restaurando..." : "Restaurar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

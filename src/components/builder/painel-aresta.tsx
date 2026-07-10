@@ -1,5 +1,7 @@
 import type { Edge, Node } from "@xyflow/react"
 
+import { Trash2 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,10 +37,13 @@ export function PainelAresta({
   aresta,
   nodes,
   aoMudarLabel,
+  aoExcluir,
 }: {
   aresta: Edge
   nodes: Node[]
   aoMudarLabel: (valor: string) => void
+  /** Remove a conexão selecionada. */
+  aoExcluir: () => void
 }) {
   const origem = nodes.find((no) => no.id === aresta.source)
   const destino = nodes.find((no) => no.id === aresta.target)
@@ -104,6 +109,16 @@ export function PainelAresta({
           Tornar rota default (*)
         </Button>
       )}
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-auto text-destructive hover:text-destructive"
+        onClick={aoExcluir}
+      >
+        <Trash2 />
+        Excluir conexão
+      </Button>
     </aside>
   )
 }

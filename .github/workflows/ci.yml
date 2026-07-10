@@ -29,5 +29,97 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Guard 1 (bloqueante): types.gen.ts precisa corresponder ao openapi.yaml
+      # local — pega yaml editado sem regenerar ou types editado à mão.
+      - name: Contrato íntegro (types ↔ openapi.yaml)
+        run: |
+          pnpm gerar:api
+          if ! git diff --exit-code src/api/types.gen.ts; then
+            echo "::error::src/api/types.gen.ts não corresponde a docs/openapi.yaml — rode 'pnpm gerar:api' e commite."
+            exit 1
+          fi
+
+      # Guard 2 (aviso, não bloqueia): compara o openapi.yaml local com a main
+      # do back. Divergiu → aviso pra rodar /sync-contrato (ação consciente,
+      # com typecheck dos impactos — por isso não falha o build).
+      - name: Contrato atualizado com o back (aviso)
+        run: |
+          URL="https://raw.githubusercontent.com/icaroeduardo-lab/maria-ia/main/docs/openapi.yaml"
+          if ! curl -sfL --max-time 15 "$URL" -o /tmp/openapi-back.yaml; then
+            echo "::warning::Não foi possível baixar o contrato do back — verificação de drift pulada."
+            echo "⚠️ **Drift de contrato não verificado** (falha ao baixar o yaml do back)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if diff -q docs/openapi.yaml /tmp/openapi-back.yaml > /dev/null; then
+            echo "Contrato sincronizado com o back (main)."
+          else
+            echo "::warning::docs/openapi.yaml divergiu da main do back — rode /sync-contrato."
+            {
+              echo "## ⚠️ Contrato desatualizado"
+              echo ""
+              echo "O \`docs/openapi.yaml\` local diverge da main do back (\`maria-ia\`)."
+              echo "Rode o playbook \`/sync-contrato\` (copia o yaml + \`pnpm gerar:api\` + typecheck dos impactos)."
+              echo ""
+              echo "<details><summary>Diff (local → back)</summary>"
+              echo ""
+              echo '```diff'
+              diff -u docs/openapi.yaml /tmp/openapi-back.yaml | head -120 || true
+              echo '```'
+              echo "</details>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Build (inclui typecheck via tsc -b)
         run: pnpm build
+
+  deploy:
+    name: Deploy em produção (S3 + CloudFront)
+    needs: lint-e-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      # build SEM VITE_API_TOKEN: o bundle publicado não carrega credencial —
+      # o painel pede o token na primeira carga (gate-token).
+      - name: Build de produção
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: pnpm build
+
+      # trava de segurança: nenhum JWT pode ter vazado pro bundle
+      - name: Verificar bundle sem credencial
+        run: |
+          if grep -rq "eyJhbGciOi" dist/; then
+            echo "::error::JWT encontrado no bundle — deploy abortado."
+            exit 1
+          fi
+          echo "Bundle limpo (sem credencial)."
+
+      - name: Credenciais AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Publicar no S3
+        run: aws s3 sync dist/ "s3://${{ vars.PAINEL_BUCKET }}" --delete
+
+      - name: Invalidar cache do CloudFront
+        run: aws cloudfront create-invalidation --distribution-id "${{ vars.PAINEL_DISTRIBUTION_ID }}" --paths "/*"
