@@ -6,6 +6,7 @@ import { PaginaBuilder } from "@/paginas/pagina-builder"
 import { PaginaConfiguracoes } from "@/paginas/pagina-configuracoes"
 import { PaginaDashboard } from "@/paginas/pagina-dashboard"
 import { PaginaConversaDetalhe } from "@/paginas/pagina-conversa-detalhe"
+import { PaginaAuditoria } from "@/paginas/pagina-auditoria"
 import { PaginaAssistidos } from "@/paginas/pagina-assistidos"
 import { PaginaConversas } from "@/paginas/pagina-conversas"
 import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/assistidos" element={<PaginaAssistidos />} />
         <Route path="/configuracoes" element={<PaginaConfiguracoes />} />
         <Route path="/dashboard" element={<PaginaDashboard />} />
+        <Route path="/auditoria" element={<PaginaAuditoria />} />
         <Route path="*" element={<PaginaNaoEncontrada />} />
       </Route>
       </Routes>
