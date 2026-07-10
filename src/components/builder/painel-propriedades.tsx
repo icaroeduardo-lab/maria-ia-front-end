@@ -238,16 +238,21 @@ function CamposDoTipo({
           />
         </>
       )
-    case "api":
+    case "api": {
+      const urlApi = texto(dados, "url")
+      const externa = /^https?:\/\//i.test(urlApi)
+      const camposCorpo = Array.isArray(dados.camposCorpo)
+        ? (dados.camposCorpo as string[])
+        : null
       return (
         <>
           <CampoInterpolavel
             nome="url"
             rotulo="URL"
-            valor={texto(dados, "url")}
+            valor={urlApi}
             onChange={(v) => aoAtualizar("url", v)}
             chaves={chaves}
-            dica="url relativa resolve no próprio server"
+            dica="url relativa = interna (resolve no próprio server); absoluta = API externa"
           />
           <CampoSelect
             nome="metodo"
@@ -263,8 +268,22 @@ function CamposDoTipo({
             aoAtualizar={aoAtualizar}
             dica="onde a resposta é gravada"
           />
+          <CampoHeaders dados={dados} aoAtualizar={aoAtualizar} />
+          <CampoCamposCorpo
+            chaves={chaves}
+            camposCorpo={camposCorpo}
+            aoAtualizar={aoAtualizar}
+          />
+          {externa && !camposCorpo && (
+            <p className="rounded-md border border-amber-500/50 bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+              URL externa sem campos selecionados: o corpo será enviado{" "}
+              <strong>vazio</strong>. Selecione acima as chaves a enviar —
+              dados do assistido só saem com escolha explícita (LGPD).
+            </p>
+          )}
         </>
       )
+    }
     case "subfluxo":
       return (
         <>
@@ -469,6 +488,141 @@ function CampoLista({
         }}
       />
       {dica && <p className="text-xs text-muted-foreground">{dica}</p>}
+    </div>
+  )
+}
+
+/** Headers extras do nó api. Valor aceita {{chave}} e {{secret:NOME}} (env). */
+function CampoHeaders({
+  dados,
+  aoAtualizar,
+}: {
+  dados: Dados
+  aoAtualizar: (campo: string, valor: unknown) => void
+}) {
+  const headers =
+    dados.headers && typeof dados.headers === "object"
+      ? (dados.headers as Record<string, string>)
+      : {}
+  const entradas = Object.entries(headers)
+
+  function gravar(novas: [string, string][]) {
+    aoAtualizar(
+      "headers",
+      novas.length ? Object.fromEntries(novas) : undefined
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>Headers</Label>
+      {entradas.map(([nome, valor], indice) => (
+        <div key={indice} className="flex items-center gap-1">
+          <Input
+            aria-label={`Nome do header ${indice + 1}`}
+            className="min-w-0 flex-1"
+            placeholder="x-api-key"
+            value={nome}
+            onChange={(evento) =>
+              gravar(
+                entradas.map((entrada, i) =>
+                  i === indice ? [evento.target.value, entrada[1]] : entrada
+                )
+              )
+            }
+          />
+          <Input
+            aria-label={`Valor do header ${indice + 1}`}
+            className="min-w-0 flex-1"
+            placeholder="{{secret:NOME}}"
+            value={valor}
+            onChange={(evento) =>
+              gravar(
+                entradas.map((entrada, i) =>
+                  i === indice ? [entrada[0], evento.target.value] : entrada
+                )
+              )
+            }
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Remover header ${indice + 1}`}
+            className="shrink-0 text-destructive hover:text-destructive"
+            onClick={() => gravar(entradas.filter((_, i) => i !== indice))}
+          >
+            <Trash2 />
+          </Button>
+        </div>
+      ))}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => gravar([...entradas, ["", ""]])}
+      >
+        Adicionar header
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        nunca cole credencial crua — use <code>{"{{secret:NOME}}"}</code>{" "}
+        (resolvida do ambiente do servidor)
+      </p>
+    </div>
+  )
+}
+
+/** Seleção explícita das chaves enviadas no corpo da chamada (LGPD). */
+function CampoCamposCorpo({
+  chaves,
+  camposCorpo,
+  aoAtualizar,
+}: {
+  chaves: ChaveDoFluxo[]
+  camposCorpo: string[] | null
+  aoAtualizar: (campo: string, valor: unknown) => void
+}) {
+  const selecionadas = new Set(camposCorpo ?? [])
+
+  function alternar(chave: string) {
+    const novas = new Set(selecionadas)
+    if (novas.has(chave)) novas.delete(chave)
+    else novas.add(chave)
+    aoAtualizar("camposCorpo", [...novas])
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>Campos enviados no corpo</Label>
+      {chaves.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          o fluxo ainda não coleta nenhuma chave
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {chaves.map(({ chave }) => (
+            <Button
+              key={chave}
+              variant={selecionadas.has(chave) ? "secondary" : "outline"}
+              size="sm"
+              className="font-mono"
+              onClick={() => alternar(chave)}
+            >
+              {chave}
+            </Button>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        sem seleção: URL interna envia tudo; URL externa envia corpo vazio
+      </p>
+      {camposCorpo && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => aoAtualizar("camposCorpo", undefined)}
+        >
+          Limpar seleção (voltar ao padrão)
+        </Button>
+      )}
     </div>
   )
 }
