@@ -147,8 +147,8 @@ export function PaginaDashboard() {
               contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--popover-foreground)", fontSize: 12 }}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="total" name="Total" stroke={SERIE_1} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-            <Line type="monotone" dataKey="concluidas" name="Concluídas" stroke={SERIE_2} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+            <Line type="monotone" dataKey="total" name="Total" stroke={SERIE_1} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+            <Line type="monotone" dataKey="concluidas" name="Concluídas" stroke={SERIE_2} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </CartaoGrafico>
@@ -164,7 +164,7 @@ export function PaginaDashboard() {
                 cursor={{ fill: "var(--muted)" }}
                 contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--popover-foreground)", fontSize: 12 }}
               />
-              <Bar dataKey="total" name="Conversas" fill={SERIE_1} radius={[0, 4, 4, 0]} />
+              <Bar dataKey="total" name="Conversas" fill={SERIE_1} radius={[0, 4, 4, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </CartaoGrafico>
@@ -179,7 +179,7 @@ export function PaginaDashboard() {
                 cursor={{ fill: "var(--muted)" }}
                 contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--popover-foreground)", fontSize: 12 }}
               />
-              <Bar dataKey="total" name="Conversas paradas" fill={SERIE_1} radius={[0, 4, 4, 0]} />
+              <Bar dataKey="total" name="Conversas paradas" fill={SERIE_1} radius={[0, 4, 4, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </CartaoGrafico>
