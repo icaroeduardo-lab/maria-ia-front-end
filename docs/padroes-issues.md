@@ -6,6 +6,10 @@ Este documento define os padrões, regras e boas práticas para a criação de i
 
 Todas as issues devem ser claras, acionáveis, testáveis e fornecer contexto suficiente para que desenvolvedores, analistas de QA, product owners e assistentes de IA compreendam o trabalho solicitado sem necessidade de esclarecimentos adicionais.
 
+## Rastreio com o Coilab
+
+Issue derivada de um card do Coilab recebe a label `#<numero-do-card>` (ex: `#20260106`; cor `7c3aed`, descrição = nome do card — criar a label se não existir) e cita o card no corpo. Issues sem card correspondente não levam label de card. Isso permite filtrar todo o trabalho de um card: `gh issue list --label '#20260106' --state all`.
+
 ## Princípios Gerais
 
 Toda issue deve:
