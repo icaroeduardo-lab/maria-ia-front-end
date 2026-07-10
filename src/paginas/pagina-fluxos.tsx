@@ -57,16 +57,7 @@ import {
   type FluxoResumo,
   type ResultadoValidacao,
 } from "@/lib/fluxos"
-
-function formatarData(iso?: string): string {
-  if (!iso) return "—"
-  const data = new Date(iso)
-  if (Number.isNaN(data.getTime())) return "—"
-  return data.toLocaleString("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  })
-}
+import { formatarDataHora } from "@/lib/utils"
 
 export function PaginaFluxos() {
   const navigate = useNavigate()
@@ -156,7 +147,7 @@ export function PaginaFluxos() {
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {formatarData(fluxo.updatedAt ?? fluxo.createdAt)}
+                    {formatarDataHora(fluxo.updatedAt ?? fluxo.createdAt)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
