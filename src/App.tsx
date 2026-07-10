@@ -4,6 +4,7 @@ import { GateToken } from "@/components/gate-token"
 import { LayoutPainel } from "@/components/layout-painel"
 import { PaginaBuilder } from "@/paginas/pagina-builder"
 import { PaginaConfiguracoes } from "@/paginas/pagina-configuracoes"
+import { PaginaDashboard } from "@/paginas/pagina-dashboard"
 import { PaginaConversaDetalhe } from "@/paginas/pagina-conversa-detalhe"
 import { PaginaAssistidos } from "@/paginas/pagina-assistidos"
 import { PaginaConversas } from "@/paginas/pagina-conversas"
@@ -32,12 +33,7 @@ export function App() {
         />
         <Route path="/assistidos" element={<PaginaAssistidos />} />
         <Route path="/configuracoes" element={<PaginaConfiguracoes />} />
-        <Route
-          path="/dashboard"
-          element={
-            <PaginaEmConstrucao descricao="Métricas e analytics do atendimento — em desenvolvimento." />
-          }
-        />
+        <Route path="/dashboard" element={<PaginaDashboard />} />
         <Route path="*" element={<PaginaNaoEncontrada />} />
       </Route>
       </Routes>
