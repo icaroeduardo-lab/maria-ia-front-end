@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parseCurlCommand } from "@/components/builder/campo-curl-parser"
+import { parseCurlCommand } from "@/components/builder/parse-curl-command"
 
 describe("parseCurlCommand", () => {
   describe("Happy path", () => {
@@ -122,7 +122,7 @@ describe("parseCurlCommand", () => {
     })
 
     it("parse curl com aspas duplas", () => {
-      const curl = `curl -X "POST" "http://api.com/x" -H "Authorization: Bearer token" -d "{\"cpf\":\"123\"}"`
+      const curl = `curl -X "POST" "http://api.com/x" -H "Authorization: Bearer token" -d "{"cpf":"123"}"`
 
       const resultado = parseCurlCommand(curl)
 
