@@ -3,6 +3,7 @@ import * as React from "react"
 import { CampoImagem } from "@/components/builder/campo-imagem"
 import { CampoInterpolavel } from "@/components/builder/campo-interpolavel"
 import { CampoSubfluxo } from "@/components/builder/campo-subfluxo"
+import { CampoCurlParser } from "@/components/builder/campo-curl-parser"
 import { Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -246,6 +247,12 @@ function CamposDoTipo({
         : null
       return (
         <>
+          {/*
+            DESIGN: Card #20260116 — Parser de curl para nó api
+            https://claude.ai/code/artifact/8e5fc5c2-b143-40f1-9de9-cc302d95f7e3
+          */}
+          <CampoCurlParser aoAtualizar={aoAtualizar} />
+
           <CampoInterpolavel
             nome="url"
             rotulo="URL"
