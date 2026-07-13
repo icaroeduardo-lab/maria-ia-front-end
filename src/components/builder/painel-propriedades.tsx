@@ -4,7 +4,7 @@ import { CampoImagem } from "@/components/builder/campo-imagem"
 import { CampoInterpolavel } from "@/components/builder/campo-interpolavel"
 import { CampoSubfluxo } from "@/components/builder/campo-subfluxo"
 import { CampoCurlParser } from "@/components/builder/campo-curl-parser"
-import { Trash2 } from "lucide-react"
+import { Maximize2, Minimize2, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,14 +48,28 @@ export function PainelPropriedades({
   chaves: ChaveDoFluxo[]
 }) {
   const info = INFO_DOS_NOS[tipo]
+  const [ampliado, setAmpliado] = React.useState(false)
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto rounded-md border p-3">
-      <div>
-        <p className="text-sm font-semibold">Propriedades</p>
-        <p className="text-xs text-muted-foreground">
-          {info.rotulo} — {info.descricao}
-        </p>
+    <aside
+      className={`flex ${ampliado ? "w-lg" : "w-72"} shrink-0 flex-col gap-4 overflow-y-auto rounded-md border p-3 transition-[width]`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">Propriedades</p>
+          <p className="text-xs text-muted-foreground">
+            {info.rotulo} — {info.descricao}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 shrink-0"
+          onClick={() => setAmpliado((atual) => !atual)}
+          title={ampliado ? "Reduzir painel" : "Ampliar painel"}
+        >
+          {ampliado ? <Minimize2 /> : <Maximize2 />}
+        </Button>
       </div>
       <CamposDoTipo
         tipo={tipo}
