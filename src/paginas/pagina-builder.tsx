@@ -19,11 +19,22 @@ import {
   type NodeProps,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { ArrowLeft, History, Play, Save, ShieldCheck, Waypoints } from "lucide-react"
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  Play,
+  Save,
+  Search,
+  ShieldCheck,
+  Waypoints,
+} from "lucide-react"
 
 import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
 import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
 import { PainelAresta } from "@/components/builder/painel-aresta"
+import { PainelDiff } from "@/components/builder/painel-diff"
 import { PainelHistorico } from "@/components/builder/painel-historico"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { PainelValidacao } from "@/components/builder/painel-validacao"
@@ -39,6 +50,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErroApi } from "@/lib/api"
 import { extrairChavesDoFluxo } from "@/lib/chaves-fluxo"
@@ -55,10 +67,21 @@ import {
   type ResultadoValidacao,
   type VersaoResumo,
 } from "@/lib/fluxos"
+import {
+  arestasParaCanvasDeDiff,
+  calcularDiff,
+  nosParaCanvasDeDiff,
+  type DiffFluxo,
+  type StatusDiff,
+} from "@/lib/diff-fluxo"
+import { duplicarSubArvore } from "@/lib/duplicar-subarvore"
 import { obterFunil, type FunilPorNo } from "@/lib/funil"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 import { cn } from "@/lib/utils"
 import { extrairIdDoNoDaMensagem } from "@/lib/validacao-fluxo"
+
+/** Versão salva (número) ou o estado atual do builder ainda não salvo (card #20260126). */
+type VersaoRef = number | "atual"
 
 function resumoDoNo(data: Record<string, unknown>): string {
   for (const campo of [
@@ -76,6 +99,26 @@ function resumoDoNo(data: Record<string, unknown>): string {
     }
   }
   return ""
+}
+
+/** Busca (card #20260123): id, chave, ou qualquer campo de texto do nó — substring, case-insensitive. */
+const CAMPOS_BUSCAVEIS = [
+  "texto",
+  "chave",
+  "campo",
+  "prompt",
+  "url",
+  "refFlowId",
+  "titulo",
+] as const
+
+function noCasaBusca(no: Node, termoLower: string): boolean {
+  if (no.id.toLowerCase().includes(termoLower)) return true
+  const dados = no.data as Record<string, unknown>
+  return CAMPOS_BUSCAVEIS.some((campo) => {
+    const valor = dados[campo]
+    return typeof valor === "string" && valor.toLowerCase().includes(termoLower)
+  })
 }
 
 /** Nós citados em erros/avisos da última validação (id -> gravidade). */
@@ -110,9 +153,20 @@ function BadgeFunil({ stats }: { stats: StatsNo }) {
   )
 }
 
+/** Id do nó atualmente em foco na busca (card #20260123) — null = busca desligada/sem resultado. */
+const ContextoBuscaCanvas = React.createContext<string | null>(null)
+
+/** Status de diff por nó (card #20260126) — null = modo diff desligado. */
+const ContextoDiffCanvas = React.createContext<Map<string, StatusDiff> | null>(
+  null
+)
+
 function NoDoEngine({ id, type, data }: NodeProps) {
   const { erros, avisos } = React.useContext(ContextoValidacaoCanvas)
   const funil = React.useContext(ContextoFunilCanvas)
+  const emFocoNaBusca = React.useContext(ContextoBuscaCanvas) === id
+  const diff = React.useContext(ContextoDiffCanvas)
+  const statusDiff = diff?.get(id)
   const dados = data as Record<string, unknown>
   const resumo = resumoDoNo(dados)
   // Skip-gate do engine: pergunta com chave já preenchida é pulada.
@@ -128,7 +182,13 @@ function NoDoEngine({ id, type, data }: NodeProps) {
       className={cn(
         "relative rounded-md border bg-background px-3 py-2 text-xs shadow-sm",
         temErroDeValidacao && "border-2 border-destructive",
-        temAvisoDeValidacao && "border-2 border-amber-500"
+        temAvisoDeValidacao && "border-2 border-amber-500",
+        emFocoNaBusca && "border-2 border-blue-500 ring-2 ring-blue-500/30",
+        statusDiff === "adicionado" && "border-2 border-emerald-600",
+        statusDiff === "alterado" &&
+          "border-2 border-dashed border-amber-500",
+        statusDiff === "removido" &&
+          "border-2 border-dashed border-destructive opacity-60"
       )}
     >
       {statsFunil && <BadgeFunil stats={statsFunil} />}
@@ -252,6 +312,15 @@ function ConteudoBuilder() {
   const [verFunil, setVerFunil] = React.useState(false)
   const [funilDados, setFunilDados] = React.useState<FunilPorNo | null>(null)
   const [carregandoFunil, setCarregandoFunil] = React.useState(false)
+  const [menuContexto, setMenuContexto] = React.useState<{
+    noId: string
+    x: number
+    y: number
+  } | null>(null)
+  const [buscaTermo, setBuscaTermo] = React.useState("")
+  const [termoBuscaDebounced, setTermoBuscaDebounced] = React.useState("")
+  const [indiceBusca, setIndiceBusca] = React.useState(0)
+  const inputBuscaRef = React.useRef<HTMLInputElement>(null)
   const [chatDeTesteAberto, setChatDeTesteAberto] = React.useState(false)
   const [historicoAberto, setHistoricoAberto] = React.useState(false)
   const [versoes, setVersoes] = React.useState<VersaoResumo[] | null>(null)
@@ -266,6 +335,17 @@ function ConteudoBuilder() {
   >(null)
   const [restaurando, setRestaurando] = React.useState(false)
   const [erroRestaurar, setErroRestaurar] = React.useState(false)
+  const [versoesSelecionadas, setVersoesSelecionadas] = React.useState<
+    VersaoRef[]
+  >([])
+  const [diffAtivo, setDiffAtivo] = React.useState<{
+    base: VersaoRef
+    comparada: VersaoRef
+    resultado: DiffFluxo
+    canvas: { nodes: Node[]; edges: Edge[] }
+  } | null>(null)
+  const [carregandoDiff, setCarregandoDiff] = React.useState(false)
+  const [erroDiff, setErroDiff] = React.useState(false)
 
   const carregar = React.useCallback(() => {
     if (!id) return
@@ -305,6 +385,59 @@ function ConteudoBuilder() {
     setPreviewVersao(null)
     setPreviewCanvas(null)
   }
+
+  // Diff visual entre 2 versões (card #20260126) — 100% client-side,
+  // GET /versoes/{n} já traz nodes/edges completos.
+  function conjuntoDaVersao(
+    ref: VersaoRef
+  ): Promise<{ nodes: NoFluxo[]; edges: ArestaFluxo[] }> {
+    if (ref === "atual") return Promise.resolve(paraApi(nodes, edges))
+    return obterVersao(id!, ref)
+  }
+
+  function alternarSelecaoDiff(ref: VersaoRef) {
+    setVersoesSelecionadas((atuais) => {
+      if (atuais.includes(ref)) return atuais.filter((v) => v !== ref)
+      if (atuais.length >= 2) return [atuais[1], ref]
+      return [...atuais, ref]
+    })
+  }
+
+  function compararVersoes() {
+    if (!id || versoesSelecionadas.length !== 2 || carregandoDiff) return
+    // "atual" é sempre a mais recente; entre números, a menor é a mais antiga
+    const [a, b] = versoesSelecionadas
+    const [base, comparada] =
+      a === "atual" ? [b, a] : b === "atual" ? [a, b] : a < b ? [a, b] : [b, a]
+
+    setCarregandoDiff(true)
+    setErroDiff(false)
+    Promise.all([conjuntoDaVersao(base), conjuntoDaVersao(comparada)])
+      .then(([conjuntoBase, conjuntoComparada]) => {
+        const resultado = calcularDiff(conjuntoBase, conjuntoComparada)
+        const nosDiff = nosParaCanvasDeDiff(conjuntoBase, conjuntoComparada)
+        const arestasDiff = arestasParaCanvasDeDiff(
+          conjuntoBase,
+          conjuntoComparada
+        )
+        setDiffAtivo({
+          base,
+          comparada,
+          resultado,
+          canvas: paraCanvas({ nodes: nosDiff, edges: arestasDiff }),
+        })
+      })
+      .catch(() => setErroDiff(true))
+      .finally(() => setCarregandoDiff(false))
+  }
+
+  function sairDoDiff() {
+    setDiffAtivo(null)
+    setVersoesSelecionadas([])
+    setErroDiff(false)
+  }
+
+  const mapaDiffPorNo = diffAtivo?.resultado.porNo ?? null
 
   function restaurar() {
     if (!id || versaoParaRestaurar === null || restaurando) return
@@ -470,6 +603,57 @@ function ConteudoBuilder() {
     setCenter(no.position.x, no.position.y, { zoom: 1, duration: 400 })
   }
 
+  // Busca de nó no canvas (card #20260123) — debounce simples; nunca filtra
+  // o canvas, só destaca/centraliza (ver ContextoBuscaCanvas em NoDoEngine).
+  // Reset do índice + centralizar no 1º resultado rodam junto do debounce
+  // (callback do timer, não reativamente em cima de um valor derivado).
+  React.useEffect(() => {
+    const t = setTimeout(() => {
+      const termo = buscaTermo.trim()
+      setTermoBuscaDebounced(termo)
+      setIndiceBusca(0)
+      if (termo) {
+        const termoLower = termo.toLowerCase()
+        const primeiro = nodes.find((n) => noCasaBusca(n, termoLower))
+        if (primeiro) centralizarNo(primeiro.id)
+      }
+    }, 200)
+    return () => clearTimeout(t)
+    // nodes de propósito fora das deps: só um NOVO termo deve resetar o
+    // índice/recentralizar — mudança de nodes (ex: o próprio centralizarNo
+    // disparando onNodesChange) não pode reiniciar a navegação do usuário.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buscaTermo])
+
+  const resultadosBusca = React.useMemo(() => {
+    if (!termoBuscaDebounced) return []
+    const termoLower = termoBuscaDebounced.toLowerCase()
+    return nodes.filter((n) => noCasaBusca(n, termoLower)).map((n) => n.id)
+  }, [termoBuscaDebounced, nodes])
+
+  function navegarBusca(direcao: 1 | -1) {
+    if (!resultadosBusca.length) return
+    const proximo =
+      (indiceBusca + direcao + resultadosBusca.length) % resultadosBusca.length
+    setIndiceBusca(proximo)
+    centralizarNo(resultadosBusca[proximo])
+  }
+
+  // Ctrl/Cmd+F foca o campo de busca de qualquer lugar do builder (não abre a
+  // busca nativa do navegador).
+  React.useEffect(() => {
+    function aoTeclar(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault()
+        inputBuscaRef.current?.focus()
+        inputBuscaRef.current?.select()
+      }
+      if (e.key === "Escape") setMenuContexto(null)
+    }
+    window.addEventListener("keydown", aoTeclar)
+    return () => window.removeEventListener("keydown", aoTeclar)
+  }, [])
+
   function atualizarLabelDaAresta(valor: string) {
     if (!arestaSelecionada) return
     setEdges((atuais) =>
@@ -524,6 +708,48 @@ function ConteudoBuilder() {
       },
     ])
     setAlterado(true)
+  }
+
+  // Duplicar nó / sub-árvore (card #20260124) — sempre id novo (nunca
+  // reaproveitar; colisão de id no mesmo fluxo quebraria o engine), cópia
+  // desconectada do resto do fluxo (evita fan-out ambíguo sem label).
+  const OFFSET_DUPLICACAO = 48
+
+  function duplicarNo(noId: string) {
+    const original = nodes.find((n) => n.id === noId)
+    if (!original) return
+    const idNovo = novoIdDeNo(new Set(nodes.map((n) => n.id)))
+    setNodes((atuais) => [
+      ...atuais.map((n) => ({ ...n, selected: false })),
+      {
+        ...original,
+        id: idNovo,
+        position: {
+          x: original.position.x + OFFSET_DUPLICACAO,
+          y: original.position.y + OFFSET_DUPLICACAO,
+        },
+        selected: true,
+      },
+    ])
+    setAlterado(true)
+    setMenuContexto(null)
+  }
+
+  function duplicarSubArvoreDoMenu(raizId: string) {
+    const { nos: nosClonados, arestas: arestasClonadas } = duplicarSubArvore(
+      nodes,
+      edges,
+      raizId,
+      novoIdDeNo,
+      OFFSET_DUPLICACAO
+    )
+    setNodes((atuais) => [
+      ...atuais.map((n) => ({ ...n, selected: false })),
+      ...nosClonados,
+    ])
+    setEdges((atuais) => [...atuais, ...arestasClonadas])
+    setAlterado(true)
+    setMenuContexto(null)
   }
 
   function aoSoltarNaTela(evento: React.DragEvent) {
@@ -615,6 +841,52 @@ function ConteudoBuilder() {
             alterações não salvas
           </span>
         )}
+        <div className="relative ml-4 flex w-80 items-center">
+          <Search className="pointer-events-none absolute left-2 size-4 text-muted-foreground" />
+          <Input
+            ref={inputBuscaRef}
+            value={buscaTermo}
+            onChange={(e) => setBuscaTermo(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                navegarBusca(e.shiftKey ? -1 : 1)
+              }
+            }}
+            placeholder="Buscar nó (id, chave, texto)..."
+            aria-label="Buscar nó no canvas"
+            className="h-8 pl-8 pr-28 text-xs"
+          />
+          {termoBuscaDebounced && (
+            <div className="absolute right-1 flex items-center gap-0.5">
+              <span className="whitespace-nowrap px-1 text-[11px] text-muted-foreground">
+                {resultadosBusca.length
+                  ? `${indiceBusca + 1} / ${resultadosBusca.length}`
+                  : "nenhum resultado"}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                disabled={!resultadosBusca.length}
+                aria-label="Resultado anterior"
+                onClick={() => navegarBusca(-1)}
+              >
+                <ChevronLeft className="size-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                disabled={!resultadosBusca.length}
+                aria-label="Próximo resultado"
+                onClick={() => navegarBusca(1)}
+              >
+                <ChevronRight className="size-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="outline"
@@ -629,7 +901,7 @@ function ConteudoBuilder() {
             variant={verFunil ? "secondary" : "outline"}
             size="sm"
             aria-pressed={verFunil}
-            disabled={!!previewCanvas}
+            disabled={!!previewCanvas || !!diffAtivo}
             onClick={alternarFunil}
           >
             <Waypoints className="size-4" />
@@ -649,7 +921,7 @@ function ConteudoBuilder() {
           </Button>
           <Button
             size="sm"
-            disabled={!alterado || salvando || !!previewCanvas}
+            disabled={!alterado || salvando || !!previewCanvas || !!diffAtivo}
             onClick={salvar}
           >
             <Save className="size-4" />
@@ -667,6 +939,25 @@ function ConteudoBuilder() {
           <Button variant="outline" size="sm" onClick={sairDoPreview}>
             Voltar ao atual
           </Button>
+        </div>
+      )}
+
+      {diffAtivo && (
+        <div className="flex items-center justify-between rounded-md border border-blue-500/50 bg-blue-500/10 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
+          <span>
+            Comparando {diffAtivo.base === "atual" ? "atual" : `v${diffAtivo.base}`} →{" "}
+            {diffAtivo.comparada === "atual" ? "atual" : `v${diffAtivo.comparada}`} —
+            somente leitura.
+          </span>
+          <Button variant="outline" size="sm" onClick={sairDoDiff}>
+            Sair do diff
+          </Button>
+        </div>
+      )}
+
+      {erroDiff && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Não foi possível comparar as versões. Tente novamente.
         </div>
       )}
 
@@ -689,50 +980,75 @@ function ConteudoBuilder() {
       )}
 
       <div className="flex min-h-0 flex-1 gap-3">
-        {!previewCanvas && <PaletaNos aoAdicionar={adicionarNo} />}
+        {!previewCanvas && !diffAtivo && <PaletaNos aoAdicionar={adicionarNo} />}
         <div
           className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border"
           onDragOver={(evento) => {
             if (
               !previewCanvas &&
+              !diffAtivo &&
               evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)
             ) {
               evento.preventDefault()
               evento.dataTransfer.dropEffect = "move"
             }
           }}
-          onDrop={previewCanvas ? undefined : aoSoltarNaTela}
+          onDrop={previewCanvas || diffAtivo ? undefined : aoSoltarNaTela}
         >
           <ContextoValidacaoCanvas.Provider value={destaqueValidacao}>
             <ContextoFunilCanvas.Provider value={mapaFunil}>
-              <ReactFlow
-                nodes={previewCanvas?.nodes ?? nodes}
-                edges={previewCanvas?.edges ?? edges}
-                nodeTypes={tiposDeNoDoCanvas}
-                edgeTypes={tiposDeAresta}
-                onNodesChange={aoMudarNodes}
-                onEdgesChange={aoMudarEdges}
-                onConnect={aoConectar}
-                nodesDraggable={!previewCanvas}
-                nodesConnectable={!previewCanvas}
-                elementsSelectable={!previewCanvas}
-                fitView
-                proOptions={{ hideAttribution: true }}
+              <ContextoBuscaCanvas.Provider
+                value={resultadosBusca[indiceBusca] ?? null}
               >
-                <Background />
-                <Controls />
-              </ReactFlow>
+                <ContextoDiffCanvas.Provider value={mapaDiffPorNo}>
+                  <ReactFlow
+                    nodes={previewCanvas?.nodes ?? diffAtivo?.canvas.nodes ?? nodes}
+                    edges={previewCanvas?.edges ?? diffAtivo?.canvas.edges ?? edges}
+                    nodeTypes={tiposDeNoDoCanvas}
+                    edgeTypes={tiposDeAresta}
+                    onNodesChange={aoMudarNodes}
+                    onEdgesChange={aoMudarEdges}
+                    onConnect={aoConectar}
+                    onNodeContextMenu={(evento, no) => {
+                      if (previewCanvas || diffAtivo) return
+                      evento.preventDefault()
+                      setMenuContexto({ noId: no.id, x: evento.clientX, y: evento.clientY })
+                    }}
+                    onPaneClick={() => setMenuContexto(null)}
+                    onMove={() => setMenuContexto(null)}
+                    nodesDraggable={!previewCanvas && !diffAtivo}
+                    nodesConnectable={!previewCanvas && !diffAtivo}
+                    elementsSelectable={!previewCanvas && !diffAtivo}
+                    fitView
+                    proOptions={{ hideAttribution: true }}
+                  >
+                    <Background />
+                    <Controls />
+                  </ReactFlow>
+                </ContextoDiffCanvas.Provider>
+              </ContextoBuscaCanvas.Provider>
             </ContextoFunilCanvas.Provider>
           </ContextoValidacaoCanvas.Provider>
         </div>
-        {historicoAberto ? (
+        {diffAtivo ? (
+          <PainelDiff
+            base={diffAtivo.base}
+            comparada={diffAtivo.comparada}
+            mudancas={diffAtivo.resultado.mudancas}
+            aoFechar={sairDoDiff}
+          />
+        ) : historicoAberto ? (
           <PainelHistorico
             versoes={versoes}
             erro={erroVersoes}
             atualizadoEm={fluxo.updatedAt}
             versaoEmPreview={previewVersao}
+            selecionadas={versoesSelecionadas}
+            carregandoDiff={carregandoDiff}
             aoVer={verVersao}
             aoRestaurar={setVersaoParaRestaurar}
+            aoAlternarSelecao={alternarSelecaoDiff}
+            aoComparar={compararVersoes}
             aoFechar={() => setHistoricoAberto(false)}
           />
         ) : noSelecionado ? (
@@ -848,6 +1164,34 @@ function ConteudoBuilder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {menuContexto && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMenuContexto(null)}
+          />
+          <div
+            className="fixed z-50 flex min-w-44 flex-col rounded-md border bg-popover p-1 text-sm shadow-md"
+            style={{ left: menuContexto.x, top: menuContexto.y }}
+          >
+          <button
+            type="button"
+            className="rounded-sm px-3 py-1.5 text-left hover:bg-accent"
+            onClick={() => duplicarNo(menuContexto.noId)}
+          >
+            Duplicar nó
+          </button>
+          <button
+            type="button"
+            className="rounded-sm px-3 py-1.5 text-left hover:bg-accent"
+            onClick={() => duplicarSubArvoreDoMenu(menuContexto.noId)}
+          >
+            Duplicar sub-árvore
+          </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

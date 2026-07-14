@@ -35,7 +35,7 @@ export function DrawerChatTeste({
         <div className="min-h-0 flex-1">
           {/* key força sessão nova (sessionId gerado no mount) sempre
               que o drawer reabre, mesmo pro mesmo fluxo */}
-          <ChatDeTeste key={flowId} flowId={flowId} />
+          <ChatDeTeste key={flowId} flowId={flowId} nomeFluxo={nomeFluxo} />
         </div>
       </SheetContent>
     </Sheet>

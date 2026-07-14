@@ -26,6 +26,11 @@ export function listarFluxos() {
   return api.get<FluxoResumo[]>("/admin/flows")
 }
 
+/** Catálogo de templates (card #20260127) — filtro client-side, sem query param novo no back. */
+export function filtrarTemplates(fluxos: FluxoResumo[] | null): FluxoResumo[] {
+  return (fluxos ?? []).filter((f) => f.isTemplate)
+}
+
 export function criarFluxo(name: string) {
   return api.post<Fluxo>("/admin/flows", { name, nodes: [], edges: [] })
 }
@@ -36,6 +41,20 @@ export function excluirFluxo(id: string) {
 
 export function obterFluxo(id: string) {
   return api.get<Fluxo>(`/admin/flows/${id}`)
+}
+
+/**
+ * Duplica um fluxo inteiro (card #20260124) — GET + POST com os mesmos
+ * nodes/edges, sem endpoint dedicado: ids de nó são escopados por fluxo
+ * (nunca colidem entre fluxos diferentes), então não precisam mudar aqui.
+ */
+export async function duplicarFluxo(id: string): Promise<Fluxo> {
+  const original = await obterFluxo(id)
+  return api.post<Fluxo>("/admin/flows", {
+    name: `${original.name} (cópia)`,
+    nodes: original.nodes,
+    edges: original.edges,
+  })
 }
 
 /**
@@ -101,4 +120,13 @@ export function ativarFluxo(id: string) {
 
 export function desativarFluxo(id: string) {
   return api.post<void>(`/admin/flows/${id}/deactivate`)
+}
+
+/** Catálogo de templates (card #20260127) — metadado, não versiona. */
+export function marcarTemplate(id: string) {
+  return api.post<Fluxo>(`/admin/flows/${id}/marcar-template`)
+}
+
+export function desmarcarTemplate(id: string) {
+  return api.post<Fluxo>(`/admin/flows/${id}/desmarcar-template`)
 }

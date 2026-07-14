@@ -1,7 +1,8 @@
 import * as React from "react"
-import { RotateCcw, Send } from "lucide-react"
+import { RotateCcw, Send, Smartphone } from "lucide-react"
 
 import { BolhaMensagem } from "@/components/chat-teste/bolha-mensagem"
+import { MockupCelular } from "@/components/chat-teste/mockup-celular"
 import { PainelDebug } from "@/components/chat-teste/painel-debug"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +19,13 @@ import {
  * chrome de apresentação (Sheet/página), pra ser reaproveitado tanto
  * numa rota dedicada quanto num drawer sobre o builder/lista (#32).
  */
-export function ChatDeTeste({ flowId }: { flowId: string }) {
+export function ChatDeTeste({
+  flowId,
+  nomeFluxo = "Maria",
+}: {
+  flowId: string
+  nomeFluxo?: string
+}) {
   const [sessionId, setSessionId] = React.useState(() =>
     gerarSessionIdDeTeste()
   )
@@ -30,6 +37,7 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
   const [rascunho, setRascunho] = React.useState("")
   const [carregando, setCarregando] = React.useState(false)
   const [erro, setErro] = React.useState<string | null>(null)
+  const [modoWhatsApp, setModoWhatsApp] = React.useState(false)
   const fimDaListaRef = React.useRef<HTMLDivElement>(null)
 
   const enviar = React.useCallback(
@@ -111,44 +119,70 @@ export function ChatDeTeste({ flowId }: { flowId: string }) {
 
   const indiceUltimaMensagem = mensagens.length - 1
 
+  const conteudoMensagens = (
+    <>
+      {mensagens.map((mensagem, indice) => (
+        <BolhaMensagem
+          key={indice}
+          mensagem={mensagem}
+          interativo={
+            indice === indiceUltimaMensagem && !carregando && !encerrado
+          }
+          aoResponder={responder}
+          variante={modoWhatsApp ? "whatsapp" : "debug"}
+        />
+      ))}
+      {carregando && (
+        <div className="flex flex-col gap-1 self-start">
+          <Skeleton className="h-8 w-40 rounded-2xl" />
+        </div>
+      )}
+      {erro && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {erro}
+        </div>
+      )}
+      {encerrado && !erro && (
+        <div className="self-center rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+          Fluxo encerrado — reinicie para testar de novo.
+        </div>
+      )}
+      <div ref={fimDaListaRef} />
+    </>
+  )
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <p className="text-sm font-medium">Chat de teste</p>
-        <Button variant="outline" size="sm" onClick={reiniciar}>
-          <RotateCcw className="size-4" />
-          Reiniciar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={modoWhatsApp ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={modoWhatsApp}
+            onClick={() => setModoWhatsApp((atual) => !atual)}
+          >
+            <Smartphone className="size-4" />
+            {modoWhatsApp ? "Modo debug" : "Ver como WhatsApp"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={reiniciar}>
+            <RotateCcw className="size-4" />
+            Reiniciar
+          </Button>
+        </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
-        {mensagens.map((mensagem, indice) => (
-          <BolhaMensagem
-            key={indice}
-            mensagem={mensagem}
-            interativo={
-              indice === indiceUltimaMensagem && !carregando && !encerrado
-            }
-            aoResponder={responder}
-          />
-        ))}
-        {carregando && (
-          <div className="flex flex-col gap-1 self-start">
-            <Skeleton className="h-8 w-40 rounded-2xl" />
-          </div>
-        )}
-        {erro && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {erro}
-          </div>
-        )}
-        {encerrado && !erro && (
-          <div className="self-center rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-            Fluxo encerrado — reinicie para testar de novo.
-          </div>
-        )}
-        <div ref={fimDaListaRef} />
-      </div>
+      {modoWhatsApp ? (
+        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 py-4">
+          <MockupCelular nomeFluxo={nomeFluxo}>
+            {conteudoMensagens}
+          </MockupCelular>
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
+          {conteudoMensagens}
+        </div>
+      )}
 
       <form
         onSubmit={enviarRascunho}

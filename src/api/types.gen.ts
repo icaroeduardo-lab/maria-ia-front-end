@@ -273,6 +273,7 @@ export interface paths {
                             id: string;
                             name: string;
                             active: boolean;
+                            isTemplate?: boolean;
                             /** Format: date-time */
                             createdAt?: string;
                             /** Format: date-time */
@@ -663,6 +664,96 @@ export interface paths {
             responses: {
                 /** @description OK */
                 200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/flows/{id}/marcar-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marca fluxo como template do catálogo (admin) — metadado, não versiona */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Flow"];
+                    };
+                };
+                /** @description Não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/flows/{id}/desmarcar-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Desmarca fluxo como template do catálogo (admin) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Flow"];
+                    };
+                };
+                /** @description Não encontrado */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2134,6 +2225,8 @@ export interface components {
             nodes: components["schemas"]["FlowNode"][];
             edges: components["schemas"]["FlowEdge"][];
             active: boolean;
+            /** @description catálogo de templates — card #20260127 */
+            isTemplate?: boolean;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
