@@ -34,6 +34,7 @@ import {
 import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
 import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
 import { PainelAresta } from "@/components/builder/painel-aresta"
+import { PainelDiff } from "@/components/builder/painel-diff"
 import { PainelHistorico } from "@/components/builder/painel-historico"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { PainelValidacao } from "@/components/builder/painel-validacao"
@@ -66,11 +67,21 @@ import {
   type ResultadoValidacao,
   type VersaoResumo,
 } from "@/lib/fluxos"
+import {
+  arestasParaCanvasDeDiff,
+  calcularDiff,
+  nosParaCanvasDeDiff,
+  type DiffFluxo,
+  type StatusDiff,
+} from "@/lib/diff-fluxo"
 import { duplicarSubArvore } from "@/lib/duplicar-subarvore"
 import { obterFunil, type FunilPorNo } from "@/lib/funil"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 import { cn } from "@/lib/utils"
 import { extrairIdDoNoDaMensagem } from "@/lib/validacao-fluxo"
+
+/** Versão salva (número) ou o estado atual do builder ainda não salvo (card #20260126). */
+type VersaoRef = number | "atual"
 
 function resumoDoNo(data: Record<string, unknown>): string {
   for (const campo of [
@@ -145,10 +156,17 @@ function BadgeFunil({ stats }: { stats: StatsNo }) {
 /** Id do nó atualmente em foco na busca (card #20260123) — null = busca desligada/sem resultado. */
 const ContextoBuscaCanvas = React.createContext<string | null>(null)
 
+/** Status de diff por nó (card #20260126) — null = modo diff desligado. */
+const ContextoDiffCanvas = React.createContext<Map<string, StatusDiff> | null>(
+  null
+)
+
 function NoDoEngine({ id, type, data }: NodeProps) {
   const { erros, avisos } = React.useContext(ContextoValidacaoCanvas)
   const funil = React.useContext(ContextoFunilCanvas)
   const emFocoNaBusca = React.useContext(ContextoBuscaCanvas) === id
+  const diff = React.useContext(ContextoDiffCanvas)
+  const statusDiff = diff?.get(id)
   const dados = data as Record<string, unknown>
   const resumo = resumoDoNo(dados)
   // Skip-gate do engine: pergunta com chave já preenchida é pulada.
@@ -165,7 +183,12 @@ function NoDoEngine({ id, type, data }: NodeProps) {
         "relative rounded-md border bg-background px-3 py-2 text-xs shadow-sm",
         temErroDeValidacao && "border-2 border-destructive",
         temAvisoDeValidacao && "border-2 border-amber-500",
-        emFocoNaBusca && "border-2 border-blue-500 ring-2 ring-blue-500/30"
+        emFocoNaBusca && "border-2 border-blue-500 ring-2 ring-blue-500/30",
+        statusDiff === "adicionado" && "border-2 border-emerald-600",
+        statusDiff === "alterado" &&
+          "border-2 border-dashed border-amber-500",
+        statusDiff === "removido" &&
+          "border-2 border-dashed border-destructive opacity-60"
       )}
     >
       {statsFunil && <BadgeFunil stats={statsFunil} />}
@@ -312,6 +335,17 @@ function ConteudoBuilder() {
   >(null)
   const [restaurando, setRestaurando] = React.useState(false)
   const [erroRestaurar, setErroRestaurar] = React.useState(false)
+  const [versoesSelecionadas, setVersoesSelecionadas] = React.useState<
+    VersaoRef[]
+  >([])
+  const [diffAtivo, setDiffAtivo] = React.useState<{
+    base: VersaoRef
+    comparada: VersaoRef
+    resultado: DiffFluxo
+    canvas: { nodes: Node[]; edges: Edge[] }
+  } | null>(null)
+  const [carregandoDiff, setCarregandoDiff] = React.useState(false)
+  const [erroDiff, setErroDiff] = React.useState(false)
 
   const carregar = React.useCallback(() => {
     if (!id) return
@@ -351,6 +385,59 @@ function ConteudoBuilder() {
     setPreviewVersao(null)
     setPreviewCanvas(null)
   }
+
+  // Diff visual entre 2 versões (card #20260126) — 100% client-side,
+  // GET /versoes/{n} já traz nodes/edges completos.
+  function conjuntoDaVersao(
+    ref: VersaoRef
+  ): Promise<{ nodes: NoFluxo[]; edges: ArestaFluxo[] }> {
+    if (ref === "atual") return Promise.resolve(paraApi(nodes, edges))
+    return obterVersao(id!, ref)
+  }
+
+  function alternarSelecaoDiff(ref: VersaoRef) {
+    setVersoesSelecionadas((atuais) => {
+      if (atuais.includes(ref)) return atuais.filter((v) => v !== ref)
+      if (atuais.length >= 2) return [atuais[1], ref]
+      return [...atuais, ref]
+    })
+  }
+
+  function compararVersoes() {
+    if (!id || versoesSelecionadas.length !== 2 || carregandoDiff) return
+    // "atual" é sempre a mais recente; entre números, a menor é a mais antiga
+    const [a, b] = versoesSelecionadas
+    const [base, comparada] =
+      a === "atual" ? [b, a] : b === "atual" ? [a, b] : a < b ? [a, b] : [b, a]
+
+    setCarregandoDiff(true)
+    setErroDiff(false)
+    Promise.all([conjuntoDaVersao(base), conjuntoDaVersao(comparada)])
+      .then(([conjuntoBase, conjuntoComparada]) => {
+        const resultado = calcularDiff(conjuntoBase, conjuntoComparada)
+        const nosDiff = nosParaCanvasDeDiff(conjuntoBase, conjuntoComparada)
+        const arestasDiff = arestasParaCanvasDeDiff(
+          conjuntoBase,
+          conjuntoComparada
+        )
+        setDiffAtivo({
+          base,
+          comparada,
+          resultado,
+          canvas: paraCanvas({ nodes: nosDiff, edges: arestasDiff }),
+        })
+      })
+      .catch(() => setErroDiff(true))
+      .finally(() => setCarregandoDiff(false))
+  }
+
+  function sairDoDiff() {
+    setDiffAtivo(null)
+    setVersoesSelecionadas([])
+    setErroDiff(false)
+  }
+
+  const mapaDiffPorNo = diffAtivo?.resultado.porNo ?? null
 
   function restaurar() {
     if (!id || versaoParaRestaurar === null || restaurando) return
@@ -814,7 +901,7 @@ function ConteudoBuilder() {
             variant={verFunil ? "secondary" : "outline"}
             size="sm"
             aria-pressed={verFunil}
-            disabled={!!previewCanvas}
+            disabled={!!previewCanvas || !!diffAtivo}
             onClick={alternarFunil}
           >
             <Waypoints className="size-4" />
@@ -834,7 +921,7 @@ function ConteudoBuilder() {
           </Button>
           <Button
             size="sm"
-            disabled={!alterado || salvando || !!previewCanvas}
+            disabled={!alterado || salvando || !!previewCanvas || !!diffAtivo}
             onClick={salvar}
           >
             <Save className="size-4" />
@@ -852,6 +939,25 @@ function ConteudoBuilder() {
           <Button variant="outline" size="sm" onClick={sairDoPreview}>
             Voltar ao atual
           </Button>
+        </div>
+      )}
+
+      {diffAtivo && (
+        <div className="flex items-center justify-between rounded-md border border-blue-500/50 bg-blue-500/10 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
+          <span>
+            Comparando {diffAtivo.base === "atual" ? "atual" : `v${diffAtivo.base}`} →{" "}
+            {diffAtivo.comparada === "atual" ? "atual" : `v${diffAtivo.comparada}`} —
+            somente leitura.
+          </span>
+          <Button variant="outline" size="sm" onClick={sairDoDiff}>
+            Sair do diff
+          </Button>
+        </div>
+      )}
+
+      {erroDiff && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Não foi possível comparar as versões. Tente novamente.
         </div>
       )}
 
@@ -874,61 +980,75 @@ function ConteudoBuilder() {
       )}
 
       <div className="flex min-h-0 flex-1 gap-3">
-        {!previewCanvas && <PaletaNos aoAdicionar={adicionarNo} />}
+        {!previewCanvas && !diffAtivo && <PaletaNos aoAdicionar={adicionarNo} />}
         <div
           className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border"
           onDragOver={(evento) => {
             if (
               !previewCanvas &&
+              !diffAtivo &&
               evento.dataTransfer.types.includes(MIME_TIPO_DE_NO)
             ) {
               evento.preventDefault()
               evento.dataTransfer.dropEffect = "move"
             }
           }}
-          onDrop={previewCanvas ? undefined : aoSoltarNaTela}
+          onDrop={previewCanvas || diffAtivo ? undefined : aoSoltarNaTela}
         >
           <ContextoValidacaoCanvas.Provider value={destaqueValidacao}>
             <ContextoFunilCanvas.Provider value={mapaFunil}>
               <ContextoBuscaCanvas.Provider
                 value={resultadosBusca[indiceBusca] ?? null}
               >
-                <ReactFlow
-                  nodes={previewCanvas?.nodes ?? nodes}
-                  edges={previewCanvas?.edges ?? edges}
-                  nodeTypes={tiposDeNoDoCanvas}
-                  edgeTypes={tiposDeAresta}
-                  onNodesChange={aoMudarNodes}
-                  onEdgesChange={aoMudarEdges}
-                  onConnect={aoConectar}
-                  onNodeContextMenu={(evento, no) => {
-                    if (previewCanvas) return
-                    evento.preventDefault()
-                    setMenuContexto({ noId: no.id, x: evento.clientX, y: evento.clientY })
-                  }}
-                  onPaneClick={() => setMenuContexto(null)}
-                  onMove={() => setMenuContexto(null)}
-                  nodesDraggable={!previewCanvas}
-                  nodesConnectable={!previewCanvas}
-                  elementsSelectable={!previewCanvas}
-                  fitView
-                  proOptions={{ hideAttribution: true }}
-                >
-                  <Background />
-                  <Controls />
-                </ReactFlow>
+                <ContextoDiffCanvas.Provider value={mapaDiffPorNo}>
+                  <ReactFlow
+                    nodes={previewCanvas?.nodes ?? diffAtivo?.canvas.nodes ?? nodes}
+                    edges={previewCanvas?.edges ?? diffAtivo?.canvas.edges ?? edges}
+                    nodeTypes={tiposDeNoDoCanvas}
+                    edgeTypes={tiposDeAresta}
+                    onNodesChange={aoMudarNodes}
+                    onEdgesChange={aoMudarEdges}
+                    onConnect={aoConectar}
+                    onNodeContextMenu={(evento, no) => {
+                      if (previewCanvas || diffAtivo) return
+                      evento.preventDefault()
+                      setMenuContexto({ noId: no.id, x: evento.clientX, y: evento.clientY })
+                    }}
+                    onPaneClick={() => setMenuContexto(null)}
+                    onMove={() => setMenuContexto(null)}
+                    nodesDraggable={!previewCanvas && !diffAtivo}
+                    nodesConnectable={!previewCanvas && !diffAtivo}
+                    elementsSelectable={!previewCanvas && !diffAtivo}
+                    fitView
+                    proOptions={{ hideAttribution: true }}
+                  >
+                    <Background />
+                    <Controls />
+                  </ReactFlow>
+                </ContextoDiffCanvas.Provider>
               </ContextoBuscaCanvas.Provider>
             </ContextoFunilCanvas.Provider>
           </ContextoValidacaoCanvas.Provider>
         </div>
-        {historicoAberto ? (
+        {diffAtivo ? (
+          <PainelDiff
+            base={diffAtivo.base}
+            comparada={diffAtivo.comparada}
+            mudancas={diffAtivo.resultado.mudancas}
+            aoFechar={sairDoDiff}
+          />
+        ) : historicoAberto ? (
           <PainelHistorico
             versoes={versoes}
             erro={erroVersoes}
             atualizadoEm={fluxo.updatedAt}
             versaoEmPreview={previewVersao}
+            selecionadas={versoesSelecionadas}
+            carregandoDiff={carregandoDiff}
             aoVer={verVersao}
             aoRestaurar={setVersaoParaRestaurar}
+            aoAlternarSelecao={alternarSelecaoDiff}
+            aoComparar={compararVersoes}
             aoFechar={() => setHistoricoAberto(false)}
           />
         ) : noSelecionado ? (
