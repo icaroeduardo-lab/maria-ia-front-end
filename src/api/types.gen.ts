@@ -840,6 +840,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista conversas em handoff (aguardando ou em atendimento) */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "aguardando" | "em_atendimento";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Fila de handoff */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HandoffPage"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/handoff/{sessionId}/assumir": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Operador assume a conversa (bot já está pausado) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Não encontrada */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conversa não está aguardando atendente */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/handoff/{sessionId}/liberar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Libera a conversa de volta pro bot (retoma o grafo no próximo nó) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Não encontrada */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conversa não está em handoff */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/assistidos": {
         parameters: {
             query?: never;
@@ -1353,6 +1491,45 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["CasosConsultaResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/casos/detalhe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Detalhe de 1 caso (por identificador ou índice da lista anterior) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CasoDetalheReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CasoDetalheResp"];
                     };
                 };
             };
@@ -1903,6 +2080,21 @@ export interface components {
         CpfReq: {
             cpf: string;
         };
+        CasoDetalheReq: {
+            /** @description identificador completo ou índice (1,2,...) */
+            caso_sel?: string;
+            /** @description JSON da consulta anterior (para mapear índice) */
+            casos?: string;
+        };
+        CasoDetalheResp: {
+            encontrado: boolean;
+            identificador?: string;
+            tipo?: string;
+            status?: string;
+            /** Format: date-time */
+            criadoEm?: string;
+            assistido?: string;
+        };
         /** @description Configuração global da IA (singleton id=default) */
         ConfigIA: {
             /** @description Preâmbulo de estilo aplicado a TODA fala da IA (vazio = usa o padrão) */
@@ -1948,6 +2140,20 @@ export interface components {
             metadados?: {
                 [key: string]: unknown;
             } | null;
+        };
+        HandoffItem: {
+            id: string;
+            sessionId: string;
+            channel: string;
+            categoria?: string | null;
+            /** @enum {string} */
+            handoffStatus: "aguardando" | "em_atendimento";
+            handoffOperador?: string | null;
+            /** Format: date-time */
+            handoffDesde?: string | null;
+        };
+        HandoffPage: {
+            itens: components["schemas"]["HandoffItem"][];
         };
         MensagemHistorico: {
             /** @description human | ai */
