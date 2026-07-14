@@ -1,6 +1,8 @@
 import * as React from "react"
 import { useNavigate } from "react-router"
 import {
+  Bookmark,
+  BookmarkCheck,
   Copy,
   History,
   Pencil,
@@ -52,9 +54,12 @@ import {
   ativarFluxo,
   criarFluxo,
   desativarFluxo,
+  desmarcarTemplate,
   duplicarFluxo,
   excluirFluxo,
+  filtrarTemplates,
   listarFluxos,
+  marcarTemplate,
   validarFluxo,
   type FluxoResumo,
   type ResultadoValidacao,
@@ -75,6 +80,10 @@ export function PaginaFluxos() {
     React.useState<FluxoResumo | null>(null)
   const [duplicandoId, setDuplicandoId] = React.useState<string | null>(null)
   const [erroDuplicar, setErroDuplicar] = React.useState<string | null>(null)
+  const [alternandoTemplateId, setAlternandoTemplateId] = React.useState<
+    string | null
+  >(null)
+  const [erroTemplate, setErroTemplate] = React.useState<string | null>(null)
 
   const carregar = React.useCallback(() => {
     listarFluxos()
@@ -104,13 +113,32 @@ export function PaginaFluxos() {
       })
   }
 
+  function alternarTemplate(fluxo: FluxoResumo) {
+    if (alternandoTemplateId) return
+    setAlternandoTemplateId(fluxo.id)
+    setErroTemplate(null)
+    const acao = fluxo.isTemplate ? desmarcarTemplate : marcarTemplate
+    acao(fluxo.id)
+      .then(() => carregar())
+      .catch(() => {
+        setErroTemplate(`Não foi possível atualizar "${fluxo.name}". Tente novamente.`)
+      })
+      .finally(() => setAlternandoTemplateId(null))
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Fluxos de atendimento do chatbot. Apenas um fica ativo por vez.
         </p>
-        <ModalNovoFluxo />
+        <div className="flex items-center gap-2">
+          <ModalCatalogoTemplates
+            fluxos={fluxos}
+            aoUsar={(fluxo) => duplicar(fluxo)}
+          />
+          <ModalNovoFluxo />
+        </div>
       </div>
 
       {erroLista && (
@@ -125,6 +153,12 @@ export function PaginaFluxos() {
       {erroDuplicar && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {erroDuplicar}
+        </div>
+      )}
+
+      {erroTemplate && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {erroTemplate}
         </div>
       )}
 
@@ -208,6 +242,16 @@ export function PaginaFluxos() {
                         icone={Copy}
                         disabled={duplicandoId === fluxo.id}
                         onClick={() => duplicar(fluxo)}
+                      />
+                      <BotaoAcao
+                        rotulo={
+                          fluxo.isTemplate
+                            ? "Desmarcar como template"
+                            : "Marcar como template"
+                        }
+                        icone={fluxo.isTemplate ? BookmarkCheck : Bookmark}
+                        disabled={alternandoTemplateId === fluxo.id}
+                        onClick={() => alternarTemplate(fluxo)}
                       />
                       <BotaoAcao
                         rotulo="Excluir fluxo"
@@ -365,6 +409,80 @@ function ModalNovoFluxo() {
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Catálogo de templates (card #20260127) — "Usar este template" reaproveita
+ * a mesma duplicação de fluxo (GET + POST /admin/flows, card #20260124):
+ * cria um fluxo NOVO e independente, não referencia o template original.
+ */
+function ModalCatalogoTemplates({
+  fluxos,
+  aoUsar,
+}: {
+  fluxos: FluxoResumo[] | null
+  aoUsar: (fluxo: FluxoResumo) => void
+}) {
+  const [aberto, setAberto] = React.useState(false)
+  const templates = filtrarTemplates(fluxos)
+
+  return (
+    <Dialog open={aberto} onOpenChange={setAberto}>
+      <DialogTrigger
+        render={
+          <Button variant="outline">
+            <Bookmark className="size-4" />
+            De template
+          </Button>
+        }
+      />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Criar fluxo a partir de template</DialogTitle>
+          <DialogDescription>
+            Cria um fluxo novo e independente — não referencia o template
+            original.
+          </DialogDescription>
+        </DialogHeader>
+        {templates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhum template ainda. Marque um fluxo existente como template na
+            lista (ícone de marcador) pra ele aparecer aqui.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className="flex flex-col gap-2 rounded-md border p-3"
+              >
+                <p className="text-sm font-medium">{template.name}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAberto(false)
+                    aoUsar(template)
+                  }}
+                >
+                  Usar este template
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setAberto(false)}
+          >
+            Cancelar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
