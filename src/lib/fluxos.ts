@@ -26,6 +26,11 @@ export function listarFluxos() {
   return api.get<FluxoResumo[]>("/admin/flows")
 }
 
+/** Catálogo de templates (card #20260127) — filtro client-side, sem query param novo no back. */
+export function filtrarTemplates(fluxos: FluxoResumo[] | null): FluxoResumo[] {
+  return (fluxos ?? []).filter((f) => f.isTemplate)
+}
+
 export function criarFluxo(name: string) {
   return api.post<Fluxo>("/admin/flows", { name, nodes: [], edges: [] })
 }
@@ -115,4 +120,13 @@ export function ativarFluxo(id: string) {
 
 export function desativarFluxo(id: string) {
   return api.post<void>(`/admin/flows/${id}/deactivate`)
+}
+
+/** Catálogo de templates (card #20260127) — metadado, não versiona. */
+export function marcarTemplate(id: string) {
+  return api.post<Fluxo>(`/admin/flows/${id}/marcar-template`)
+}
+
+export function desmarcarTemplate(id: string) {
+  return api.post<Fluxo>(`/admin/flows/${id}/desmarcar-template`)
 }
