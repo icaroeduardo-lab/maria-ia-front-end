@@ -39,6 +39,20 @@ export function obterFluxo(id: string) {
 }
 
 /**
+ * Duplica um fluxo inteiro (card #20260124) — GET + POST com os mesmos
+ * nodes/edges, sem endpoint dedicado: ids de nó são escopados por fluxo
+ * (nunca colidem entre fluxos diferentes), então não precisam mudar aqui.
+ */
+export async function duplicarFluxo(id: string): Promise<Fluxo> {
+  const original = await obterFluxo(id)
+  return api.post<Fluxo>("/admin/flows", {
+    name: `${original.name} (cópia)`,
+    nodes: original.nodes,
+    edges: original.edges,
+  })
+}
+
+/**
  * Salva o fluxo com lock otimista: envia o updatedAt carregado;
  * a API responde 409 se alguém salvou depois disso.
  */

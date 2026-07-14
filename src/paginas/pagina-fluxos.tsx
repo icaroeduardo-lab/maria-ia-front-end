@@ -1,6 +1,7 @@
 import * as React from "react"
 import { useNavigate } from "react-router"
 import {
+  Copy,
   History,
   Pencil,
   Play,
@@ -51,6 +52,7 @@ import {
   ativarFluxo,
   criarFluxo,
   desativarFluxo,
+  duplicarFluxo,
   excluirFluxo,
   listarFluxos,
   validarFluxo,
@@ -71,6 +73,8 @@ export function PaginaFluxos() {
     React.useState<FluxoResumo | null>(null)
   const [fluxoParaTestar, setFluxoParaTestar] =
     React.useState<FluxoResumo | null>(null)
+  const [duplicandoId, setDuplicandoId] = React.useState<string | null>(null)
+  const [erroDuplicar, setErroDuplicar] = React.useState<string | null>(null)
 
   const carregar = React.useCallback(() => {
     listarFluxos()
@@ -88,6 +92,18 @@ export function PaginaFluxos() {
     carregar()
   }, [carregar])
 
+  function duplicar(fluxo: FluxoResumo) {
+    if (duplicandoId) return
+    setDuplicandoId(fluxo.id)
+    setErroDuplicar(null)
+    duplicarFluxo(fluxo.id)
+      .then((novo) => navigate(`/fluxos/${novo.id}/builder`))
+      .catch(() => {
+        setErroDuplicar(`Não foi possível duplicar "${fluxo.name}". Tente novamente.`)
+        setDuplicandoId(null)
+      })
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -103,6 +119,12 @@ export function PaginaFluxos() {
           <Button variant="outline" size="sm" onClick={() => carregar()}>
             Recarregar
           </Button>
+        </div>
+      )}
+
+      {erroDuplicar && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {erroDuplicar}
         </div>
       )}
 
@@ -182,6 +204,12 @@ export function PaginaFluxos() {
                         }
                       />
                       <BotaoAcao
+                        rotulo="Duplicar fluxo"
+                        icone={Copy}
+                        disabled={duplicandoId === fluxo.id}
+                        onClick={() => duplicar(fluxo)}
+                      />
+                      <BotaoAcao
                         rotulo="Excluir fluxo"
                         icone={Trash2}
                         destrutivo
@@ -235,11 +263,13 @@ function BotaoAcao({
   rotulo,
   icone: Icone,
   destrutivo = false,
+  disabled = false,
   onClick,
 }: {
   rotulo: string
   icone: React.ComponentType<{ className?: string }>
   destrutivo?: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
@@ -250,6 +280,7 @@ function BotaoAcao({
             variant="ghost"
             size="icon"
             aria-label={rotulo}
+            disabled={disabled}
             className={
               destrutivo ? "text-destructive hover:text-destructive" : undefined
             }

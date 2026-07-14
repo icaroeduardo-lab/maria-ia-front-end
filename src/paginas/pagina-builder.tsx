@@ -66,6 +66,7 @@ import {
   type ResultadoValidacao,
   type VersaoResumo,
 } from "@/lib/fluxos"
+import { duplicarSubArvore } from "@/lib/duplicar-subarvore"
 import { obterFunil, type FunilPorNo } from "@/lib/funil"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 import { cn } from "@/lib/utils"
@@ -288,6 +289,11 @@ function ConteudoBuilder() {
   const [verFunil, setVerFunil] = React.useState(false)
   const [funilDados, setFunilDados] = React.useState<FunilPorNo | null>(null)
   const [carregandoFunil, setCarregandoFunil] = React.useState(false)
+  const [menuContexto, setMenuContexto] = React.useState<{
+    noId: string
+    x: number
+    y: number
+  } | null>(null)
   const [buscaTermo, setBuscaTermo] = React.useState("")
   const [termoBuscaDebounced, setTermoBuscaDebounced] = React.useState("")
   const [indiceBusca, setIndiceBusca] = React.useState(0)
@@ -555,6 +561,7 @@ function ConteudoBuilder() {
         inputBuscaRef.current?.focus()
         inputBuscaRef.current?.select()
       }
+      if (e.key === "Escape") setMenuContexto(null)
     }
     window.addEventListener("keydown", aoTeclar)
     return () => window.removeEventListener("keydown", aoTeclar)
@@ -614,6 +621,48 @@ function ConteudoBuilder() {
       },
     ])
     setAlterado(true)
+  }
+
+  // Duplicar nó / sub-árvore (card #20260124) — sempre id novo (nunca
+  // reaproveitar; colisão de id no mesmo fluxo quebraria o engine), cópia
+  // desconectada do resto do fluxo (evita fan-out ambíguo sem label).
+  const OFFSET_DUPLICACAO = 48
+
+  function duplicarNo(noId: string) {
+    const original = nodes.find((n) => n.id === noId)
+    if (!original) return
+    const idNovo = novoIdDeNo(new Set(nodes.map((n) => n.id)))
+    setNodes((atuais) => [
+      ...atuais.map((n) => ({ ...n, selected: false })),
+      {
+        ...original,
+        id: idNovo,
+        position: {
+          x: original.position.x + OFFSET_DUPLICACAO,
+          y: original.position.y + OFFSET_DUPLICACAO,
+        },
+        selected: true,
+      },
+    ])
+    setAlterado(true)
+    setMenuContexto(null)
+  }
+
+  function duplicarSubArvoreDoMenu(raizId: string) {
+    const { nos: nosClonados, arestas: arestasClonadas } = duplicarSubArvore(
+      nodes,
+      edges,
+      raizId,
+      novoIdDeNo,
+      OFFSET_DUPLICACAO
+    )
+    setNodes((atuais) => [
+      ...atuais.map((n) => ({ ...n, selected: false })),
+      ...nosClonados,
+    ])
+    setEdges((atuais) => [...atuais, ...arestasClonadas])
+    setAlterado(true)
+    setMenuContexto(null)
   }
 
   function aoSoltarNaTela(evento: React.DragEvent) {
@@ -852,6 +901,13 @@ function ConteudoBuilder() {
                   onNodesChange={aoMudarNodes}
                   onEdgesChange={aoMudarEdges}
                   onConnect={aoConectar}
+                  onNodeContextMenu={(evento, no) => {
+                    if (previewCanvas) return
+                    evento.preventDefault()
+                    setMenuContexto({ noId: no.id, x: evento.clientX, y: evento.clientY })
+                  }}
+                  onPaneClick={() => setMenuContexto(null)}
+                  onMove={() => setMenuContexto(null)}
                   nodesDraggable={!previewCanvas}
                   nodesConnectable={!previewCanvas}
                   elementsSelectable={!previewCanvas}
@@ -988,6 +1044,34 @@ function ConteudoBuilder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {menuContexto && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMenuContexto(null)}
+          />
+          <div
+            className="fixed z-50 flex min-w-44 flex-col rounded-md border bg-popover p-1 text-sm shadow-md"
+            style={{ left: menuContexto.x, top: menuContexto.y }}
+          >
+          <button
+            type="button"
+            className="rounded-sm px-3 py-1.5 text-left hover:bg-accent"
+            onClick={() => duplicarNo(menuContexto.noId)}
+          >
+            Duplicar nó
+          </button>
+          <button
+            type="button"
+            className="rounded-sm px-3 py-1.5 text-left hover:bg-accent"
+            onClick={() => duplicarSubArvoreDoMenu(menuContexto.noId)}
+          >
+            Duplicar sub-árvore
+          </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
