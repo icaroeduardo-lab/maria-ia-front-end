@@ -12,12 +12,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useContagemHandoff } from "@/hooks/use-contagem-handoff"
 import { itensNavegacao } from "@/lib/navegacao"
 
 const ehProducao = !import.meta.env.VITE_API_URL.includes("localhost")
 
 export function SidebarPainel() {
   const { pathname } = useLocation()
+  const aguardandoHandoff = useContagemHandoff()
 
   return (
     <Sidebar>
@@ -39,6 +41,11 @@ export function SidebarPainel() {
                   >
                     <item.icone />
                     {item.titulo}
+                    {item.url === "/atendimento" && aguardandoHandoff > 0 && (
+                      <Badge className="ml-auto bg-amber-500 text-white dark:bg-amber-600">
+                        {aguardandoHandoff}
+                      </Badge>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

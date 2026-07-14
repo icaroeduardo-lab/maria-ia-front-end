@@ -9,6 +9,8 @@ import { PaginaConversaDetalhe } from "@/paginas/pagina-conversa-detalhe"
 import { PaginaAuditoria } from "@/paginas/pagina-auditoria"
 import { PaginaAssistidos } from "@/paginas/pagina-assistidos"
 import { PaginaConversas } from "@/paginas/pagina-conversas"
+import { PaginaAtendimento } from "@/paginas/pagina-atendimento"
+import { PaginaAtendimentoDetalhe } from "@/paginas/pagina-atendimento-detalhe"
 import { PaginaEmConstrucao } from "@/paginas/pagina-em-construcao"
 import { PaginaFluxos } from "@/paginas/pagina-fluxos"
 import { PaginaNaoEncontrada } from "@/paginas/pagina-nao-encontrada"
@@ -31,6 +33,11 @@ export function App() {
         <Route
           path="/conversas/:sessionId"
           element={<PaginaConversaDetalhe />}
+        />
+        <Route path="/atendimento" element={<PaginaAtendimento />} />
+        <Route
+          path="/atendimento/:sessionId"
+          element={<PaginaAtendimentoDetalhe />}
         />
         <Route path="/assistidos" element={<PaginaAssistidos />} />
         <Route path="/configuracoes" element={<PaginaConfiguracoes />} />

@@ -205,7 +205,7 @@ function PainelLateral({
   )
 }
 
-function Campo({
+export function Campo({
   rotulo,
   children,
 }: {
@@ -225,7 +225,7 @@ function Campo({
  * confirmação explícita com aviso de auditoria e vive só neste estado:
  * recarregar a página volta mascarado, nada revelado é persistido.
  */
-function PainelAssistido({
+export function PainelAssistido({
   sessionId,
   assistidoMascarado,
 }: {
