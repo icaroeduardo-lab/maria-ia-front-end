@@ -19,7 +19,7 @@ import {
   type NodeProps,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { ArrowLeft, History, Play, Save, ShieldCheck } from "lucide-react"
+import { ArrowLeft, History, Play, Save, ShieldCheck, Waypoints } from "lucide-react"
 
 import { ArestaRotulada } from "@/components/builder/aresta-rotulada"
 import { MIME_TIPO_DE_NO, PaletaNos } from "@/components/builder/paleta-nos"
@@ -55,6 +55,7 @@ import {
   type ResultadoValidacao,
   type VersaoResumo,
 } from "@/lib/fluxos"
+import { obterFunil, type FunilPorNo } from "@/lib/funil"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
 import { cn } from "@/lib/utils"
 import { extrairIdDoNoDaMensagem } from "@/lib/validacao-fluxo"
@@ -83,8 +84,35 @@ const ContextoValidacaoCanvas = React.createContext<{
   avisos: Set<string>
 }>({ erros: new Set(), avisos: new Set() })
 
+/** Passagens/abandono por nó (card #20260119) — null enquanto a camada está desligada. */
+type StatsNo = { total: number; abandonoPct: number | null }
+const ContextoFunilCanvas = React.createContext<Map<string, StatsNo> | null>(
+  null
+)
+
+function BadgeFunil({ stats }: { stats: StatsNo }) {
+  const alerta = (stats.abandonoPct ?? 0) > 30
+  const sinal = stats.abandonoPct === 0 ? "" : stats.abandonoPct !== null && stats.abandonoPct > 0 ? "-" : "+"
+  const rotulo =
+    stats.abandonoPct !== null
+      ? `${stats.total} · ${sinal}${Math.abs(stats.abandonoPct)}%`
+      : `${stats.total} passagens`
+  return (
+    <span
+      aria-label={`${stats.total} passagens${stats.abandonoPct !== null ? `, ${stats.abandonoPct}% abandono` : ""}`}
+      className={cn(
+        "absolute -top-3 left-2 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none text-white",
+        alerta ? "bg-amber-600" : "bg-emerald-700"
+      )}
+    >
+      {rotulo}
+    </span>
+  )
+}
+
 function NoDoEngine({ id, type, data }: NodeProps) {
   const { erros, avisos } = React.useContext(ContextoValidacaoCanvas)
+  const funil = React.useContext(ContextoFunilCanvas)
   const dados = data as Record<string, unknown>
   const resumo = resumoDoNo(dados)
   // Skip-gate do engine: pergunta com chave já preenchida é pulada.
@@ -94,14 +122,16 @@ function NoDoEngine({ id, type, data }: NodeProps) {
     dados.chave.trim() !== ""
   const temErroDeValidacao = erros.has(id)
   const temAvisoDeValidacao = !temErroDeValidacao && avisos.has(id)
+  const statsFunil = funil?.get(id)
   return (
     <div
       className={cn(
-        "rounded-md border bg-background px-3 py-2 text-xs shadow-sm",
+        "relative rounded-md border bg-background px-3 py-2 text-xs shadow-sm",
         temErroDeValidacao && "border-2 border-destructive",
         temAvisoDeValidacao && "border-2 border-amber-500"
       )}
     >
+      {statsFunil && <BadgeFunil stats={statsFunil} />}
       <Handle type="target" position={Position.Top} />
       <span className="font-medium">{type}</span>
       {resumo && <span className="text-muted-foreground">: {resumo}</span>}
@@ -219,6 +249,9 @@ function ConteudoBuilder() {
     React.useState<ResultadoValidacao | null>(null)
   const [validando, setValidando] = React.useState(false)
   const [erroValidar, setErroValidar] = React.useState(false)
+  const [verFunil, setVerFunil] = React.useState(false)
+  const [funilDados, setFunilDados] = React.useState<FunilPorNo | null>(null)
+  const [carregandoFunil, setCarregandoFunil] = React.useState(false)
   const [chatDeTesteAberto, setChatDeTesteAberto] = React.useState(false)
   const [historicoAberto, setHistoricoAberto] = React.useState(false)
   const [versoes, setVersoes] = React.useState<VersaoResumo[] | null>(null)
@@ -398,6 +431,39 @@ function ConteudoBuilder() {
       .finally(() => setValidando(false))
   }
 
+  /** "Ver funil": busca só ao ligar (uma chamada, sem polling); dado fica em cache até o fluxo mudar. */
+  function alternarFunil() {
+    if (verFunil) {
+      setVerFunil(false)
+      return
+    }
+    setVerFunil(true)
+    if (!id || funilDados || carregandoFunil) return
+    setCarregandoFunil(true)
+    obterFunil(id)
+      .then(setFunilDados)
+      .catch(() => setFunilDados({ nodes: [] }))
+      .finally(() => setCarregandoFunil(false))
+  }
+
+  /** total + % de abandono relativo ao predecessor único conectado (só quando a camada está ligada). */
+  const mapaFunil = React.useMemo(() => {
+    if (!verFunil || !funilDados) return null
+    const porNo = new Map(funilDados.nodes.map((n) => [n.nodeId, n.total]))
+    const stats = new Map<string, StatsNo>()
+    for (const [nodeId, total] of porNo) {
+      const entrada = edges.filter((e) => e.target === nodeId)
+      const predecessor = entrada.length === 1 ? entrada[0].source : null
+      const totalPredecessor = predecessor ? porNo.get(predecessor) : undefined
+      const abandonoPct =
+        totalPredecessor && totalPredecessor > 0
+          ? Math.round((1 - total / totalPredecessor) * 100)
+          : null
+      stats.set(nodeId, { total, abandonoPct })
+    }
+    return stats
+  }, [verFunil, funilDados, edges])
+
   function centralizarNo(idNo: string) {
     const no = nodes.find((n) => n.id === idNo)
     if (!no) return
@@ -560,6 +626,16 @@ function ConteudoBuilder() {
             {validando ? "Validando..." : "Validar"}
           </Button>
           <Button
+            variant={verFunil ? "secondary" : "outline"}
+            size="sm"
+            aria-pressed={verFunil}
+            disabled={!!previewCanvas}
+            onClick={alternarFunil}
+          >
+            <Waypoints className="size-4" />
+            {carregandoFunil ? "Carregando funil..." : "Ver funil"}
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setChatDeTesteAberto(true)}
@@ -628,23 +704,25 @@ function ConteudoBuilder() {
           onDrop={previewCanvas ? undefined : aoSoltarNaTela}
         >
           <ContextoValidacaoCanvas.Provider value={destaqueValidacao}>
-            <ReactFlow
-              nodes={previewCanvas?.nodes ?? nodes}
-              edges={previewCanvas?.edges ?? edges}
-              nodeTypes={tiposDeNoDoCanvas}
-              edgeTypes={tiposDeAresta}
-              onNodesChange={aoMudarNodes}
-              onEdgesChange={aoMudarEdges}
-              onConnect={aoConectar}
-              nodesDraggable={!previewCanvas}
-              nodesConnectable={!previewCanvas}
-              elementsSelectable={!previewCanvas}
-              fitView
-              proOptions={{ hideAttribution: true }}
-            >
-              <Background />
-              <Controls />
-            </ReactFlow>
+            <ContextoFunilCanvas.Provider value={mapaFunil}>
+              <ReactFlow
+                nodes={previewCanvas?.nodes ?? nodes}
+                edges={previewCanvas?.edges ?? edges}
+                nodeTypes={tiposDeNoDoCanvas}
+                edgeTypes={tiposDeAresta}
+                onNodesChange={aoMudarNodes}
+                onEdgesChange={aoMudarEdges}
+                onConnect={aoConectar}
+                nodesDraggable={!previewCanvas}
+                nodesConnectable={!previewCanvas}
+                elementsSelectable={!previewCanvas}
+                fitView
+                proOptions={{ hideAttribution: true }}
+              >
+                <Background />
+                <Controls />
+              </ReactFlow>
+            </ContextoFunilCanvas.Provider>
           </ContextoValidacaoCanvas.Provider>
         </div>
         {historicoAberto ? (
