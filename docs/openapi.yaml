@@ -173,6 +173,21 @@ components:
       required: [cpf]
       properties:
         cpf: { type: string }
+    CasoDetalheReq:
+      type: object
+      properties:
+        caso_sel: { type: string, description: "identificador completo ou índice (1,2,...)" }
+        casos: { type: string, description: "JSON da consulta anterior (para mapear índice)" }
+    CasoDetalheResp:
+      type: object
+      required: [encontrado]
+      properties:
+        encontrado: { type: boolean }
+        identificador: { type: string }
+        tipo: { type: string }
+        status: { type: string }
+        criadoEm: { type: string, format: date-time }
+        assistido: { type: string }
     ConfigIA:
       type: object
       description: Configuração global da IA (singleton id=default)
@@ -224,6 +239,22 @@ components:
               nullable: true
               additionalProperties: true
               description: "assistido dentro de metadados vem MASCARADO (LGPD); completo só via /revelar"
+    HandoffItem:
+      type: object
+      required: [id, sessionId, channel, handoffStatus]
+      properties:
+        id: { type: string }
+        sessionId: { type: string }
+        channel: { type: string }
+        categoria: { type: string, nullable: true }
+        handoffStatus: { type: string, enum: [aguardando, em_atendimento] }
+        handoffOperador: { type: string, nullable: true }
+        handoffDesde: { type: string, format: date-time, nullable: true }
+    HandoffPage:
+      type: object
+      required: [itens]
+      properties:
+        itens: { type: array, items: { $ref: '#/components/schemas/HandoffItem' } }
     MensagemHistorico:
       type: object
       required: [role, content]
@@ -571,6 +602,36 @@ paths:
                     allOf: [{ $ref: '#/components/schemas/Assistido' }]
                     nullable: true
 
+  # ── Admin: Handoff (atendente humano) ──────────────────────
+  /admin/handoff:
+    get:
+      tags: [Admin — Handoff]
+      summary: Lista conversas em handoff (aguardando ou em atendimento)
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [aguardando, em_atendimento] } }
+      responses:
+        "200":
+          description: Fila de handoff
+          content: { application/json: { schema: { $ref: '#/components/schemas/HandoffPage' } } }
+  /admin/handoff/{sessionId}/assumir:
+    post:
+      tags: [Admin — Handoff]
+      summary: Operador assume a conversa (bot já está pausado)
+      parameters: [{ in: path, name: sessionId, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+        "404": { description: Não encontrada }
+        "409": { description: "Conversa não está aguardando atendente" }
+  /admin/handoff/{sessionId}/liberar:
+    post:
+      tags: [Admin — Handoff]
+      summary: Libera a conversa de volta pro bot (retoma o grafo no próximo nó)
+      parameters: [{ in: path, name: sessionId, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+        "404": { description: Não encontrada }
+        "409": { description: "Conversa não está em handoff" }
+
   # ── Admin: Assistidos ──────────────────────────────────────
   /admin/assistidos:
     get:
@@ -696,6 +757,13 @@ paths:
       security: []
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CpfReq' } } } }
       responses: { "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CasosConsultaResp' } } } } }
+  /api/casos/detalhe:
+    post:
+      tags: [Interno (fluxo)]
+      summary: Detalhe de 1 caso (por identificador ou índice da lista anterior)
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CasoDetalheReq' } } } }
+      responses: { "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CasoDetalheResp' } } } } }
   /api/processos/consultar:
     post:
       tags: [Interno (fluxo)]
