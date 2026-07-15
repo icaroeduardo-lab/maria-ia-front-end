@@ -1328,6 +1328,10 @@ export interface paths {
                     "application/json": {
                         estiloPrompt?: string;
                         conversacional?: boolean;
+                        horarioAtivo?: boolean;
+                        diasSemana?: number[];
+                        horaInicio?: string;
+                        horaFim?: string;
                     };
                 };
             };
@@ -1339,6 +1343,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConfigIA"];
+                    };
+                };
+                /** @description horaInicio/horaFim malformado, janela invertida (horaFim <= horaInicio) ou diasSemana inválido — nada é persistido */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
                     };
                 };
             };
@@ -2304,6 +2317,14 @@ export interface components {
             conversacional: boolean;
             /** @description Texto padrão do estilo (só no GET — alimenta o "restaurar padrão") */
             padrao?: string;
+            /** @description Liga/desliga o aviso automático de fora do expediente (issue */
+            horarioAtivo?: boolean;
+            /** @description Dias de expediente — 0=domingo...6=sábado */
+            diasSemana?: number[];
+            /** @description Início do expediente, formato HH:mm (America/Sao_Paulo) */
+            horaInicio?: string;
+            /** @description Fim do expediente (exclusive), formato HH:mm — precisa ser maior que horaInicio (sem overnight) */
+            horaFim?: string;
             id?: string;
             /** Format: date-time */
             updatedAt?: string;
