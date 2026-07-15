@@ -17,6 +17,10 @@ export function obterConfig() {
 export function salvarConfig(dados: {
   estiloPrompt?: string
   conversacional?: boolean
+  horarioAtivo?: boolean
+  diasSemana?: number[]
+  horaInicio?: string
+  horaFim?: string
 }) {
   return api.put<ConfigIA>("/admin/config", dados)
 }
