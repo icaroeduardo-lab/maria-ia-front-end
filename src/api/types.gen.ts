@@ -2417,6 +2417,16 @@ export interface components {
                 total: number;
                 concluidas: number;
             }[];
+            /** @description média geral da nota de satisfação (1-5); null se nenhuma conversa tem nota ainda */
+            mediaCsat: number | null;
+            csatPorCategoria: {
+                categoria: string;
+                media: number;
+            }[];
+            csatPorFluxo: {
+                flowId: string;
+                media: number;
+            }[];
         };
         FunilPorNo: {
             nodes: {
