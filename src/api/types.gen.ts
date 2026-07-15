@@ -1328,6 +1328,10 @@ export interface paths {
                     "application/json": {
                         estiloPrompt?: string;
                         conversacional?: boolean;
+                        horarioAtivo?: boolean;
+                        diasSemana?: number[];
+                        horaInicio?: string;
+                        horaFim?: string;
                     };
                 };
             };
@@ -1339,6 +1343,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConfigIA"];
+                    };
+                };
+                /** @description horaInicio/horaFim malformado, janela invertida (horaFim <= horaInicio) ou diasSemana inválido — nada é persistido */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
                     };
                 };
             };
@@ -1953,6 +1966,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/upload-documento": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload de documento/comprovante pelo assistido (bucket privado) — avança a conversa
+         * @description Sem JWT: autenticação é por posse do sessionId (thread_id da conversa). Magic bytes decidem o mimetype real (Content-Type declarado nunca é confiável) — jpeg/png/PDF até 10MB. Nunca retorna URL/key do S3 (LGPD).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "multipart/form-data": {
+                        /** @description sessionId/thread_id da conversa (web ou wa:<numero>) */
+                        sessionId: string;
+                        /**
+                         * Format: binary
+                         * @description jpeg/png/PDF, máx 10MB
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description { nome, tamanho, mimeType, messages } — conversa avançada */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description sessionId inexistente ou conversa não ativa */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Arquivo grande demais */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Tipo de arquivo não aceito (magic bytes) */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Rate limit de uploads excedido */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mock/verificar-cpf": {
         parameters: {
             query?: never;
@@ -2304,6 +2394,14 @@ export interface components {
             conversacional: boolean;
             /** @description Texto padrão do estilo (só no GET — alimenta o "restaurar padrão") */
             padrao?: string;
+            /** @description Liga/desliga o aviso automático de fora do expediente (issue */
+            horarioAtivo?: boolean;
+            /** @description Dias de expediente — 0=domingo...6=sábado */
+            diasSemana?: number[];
+            /** @description Início do expediente, formato HH:mm (America/Sao_Paulo) */
+            horaInicio?: string;
+            /** @description Fim do expediente (exclusive), formato HH:mm — precisa ser maior que horaInicio (sem overnight) */
+            horaFim?: string;
             id?: string;
             /** Format: date-time */
             updatedAt?: string;
@@ -2416,6 +2514,16 @@ export interface components {
                 dia: string;
                 total: number;
                 concluidas: number;
+            }[];
+            /** @description média geral da nota de satisfação (1-5); null se nenhuma conversa tem nota ainda */
+            mediaCsat: number | null;
+            csatPorCategoria: {
+                categoria: string;
+                media: number;
+            }[];
+            csatPorFluxo: {
+                flowId: string;
+                media: number;
             }[];
         };
         FunilPorNo: {

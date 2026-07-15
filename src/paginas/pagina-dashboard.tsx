@@ -60,6 +60,29 @@ function CartaoGrafico({ titulo, children }: { titulo: string; children: React.R
   )
 }
 
+/** Bloco "nome — nota", ordenado com pior nota primeiro (ajuda o gestor a agir). */
+function CartaoNotas({ titulo, itens }: { titulo: string; itens: { nome: string; media: number }[] }) {
+  const ordenados = [...itens].sort((a, b) => a.media - b.media)
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+      <h2 className="text-sm font-medium">{titulo}</h2>
+      {ordenados.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Sem dados ainda.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {ordenados.map((item) => (
+            <li key={item.nome} className="flex items-center justify-between text-sm">
+              <span className="truncate">{item.nome}</span>
+              <span className="tabular-nums font-medium">{item.media.toFixed(1)} / 5</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function PaginaDashboard() {
   const [dados, setDados] = React.useState<AnalyticsSummary | null>(null)
   const [erro, setErro] = React.useState<string | null>(null)
@@ -91,8 +114,8 @@ export function PaginaDashboard() {
   if (dados === null) {
     return (
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {[0, 1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
@@ -118,7 +141,7 @@ export function PaginaDashboard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Tile rotulo="Conversas (total)" valor={dados.total.toLocaleString("pt-BR")} />
         <Tile
           rotulo="Taxa de conclusão"
@@ -133,6 +156,11 @@ export function PaginaDashboard() {
           rotulo="Hoje"
           valor={(hoje?.total ?? 0).toLocaleString("pt-BR")}
           detalhe={hoje ? `${hoje.concluidas} concluídas` : undefined}
+        />
+        <Tile
+          rotulo="CSAT médio"
+          valor={dados.mediaCsat !== null ? `${dados.mediaCsat.toFixed(1)} / 5` : "—"}
+          detalhe={dados.mediaCsat === null ? "sem dados ainda" : undefined}
         />
       </div>
 
@@ -183,6 +211,17 @@ export function PaginaDashboard() {
             </BarChart>
           </ResponsiveContainer>
         </CartaoGrafico>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CartaoNotas
+          titulo="CSAT por categoria"
+          itens={dados.csatPorCategoria.map((c) => ({ nome: c.categoria, media: c.media }))}
+        />
+        <CartaoNotas
+          titulo="CSAT por fluxo"
+          itens={dados.csatPorFluxo.map((f) => ({ nome: f.flowId, media: f.media }))}
+        />
       </div>
     </div>
   )

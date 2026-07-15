@@ -203,6 +203,21 @@ components:
         padrao:
           type: string
           description: Texto padrão do estilo (só no GET — alimenta o "restaurar padrão")
+        horarioAtivo:
+          type: boolean
+          description: Liga/desliga o aviso automático de fora do expediente (issue #79)
+        diasSemana:
+          type: array
+          description: Dias de expediente — 0=domingo...6=sábado
+          items: { type: integer, minimum: 0, maximum: 6 }
+        horaInicio:
+          type: string
+          description: Início do expediente, formato HH:mm (America/Sao_Paulo)
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        horaFim:
+          type: string
+          description: Fim do expediente (exclusive), formato HH:mm — precisa ser maior que horaInicio (sem overnight)
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
         id: { type: string }
         updatedAt: { type: string, format: date-time }
     ConversaResumo:
@@ -298,7 +313,7 @@ components:
         itens: { type: array, items: { $ref: '#/components/schemas/Assistido' } }
     AnalyticsSummary:
       type: object
-      required: [total, taxaConclusao, porStatus, porCategoria, porCanal, abandonoPorEtapa, serieDiaria]
+      required: [total, taxaConclusao, porStatus, porCategoria, porCanal, abandonoPorEtapa, serieDiaria, mediaCsat, csatPorCategoria, csatPorFluxo]
       properties:
         total: { type: integer }
         taxaConclusao: { type: number, description: "0..1" }
@@ -318,6 +333,16 @@ components:
           type: array
           description: "últimos 30 dias"
           items: { type: object, required: [dia, total, concluidas], properties: { dia: { type: string }, total: { type: integer }, concluidas: { type: integer } } }
+        mediaCsat:
+          type: number
+          nullable: true
+          description: "média geral da nota de satisfação (1-5); null se nenhuma conversa tem nota ainda"
+        csatPorCategoria:
+          type: array
+          items: { type: object, required: [categoria, media], properties: { categoria: { type: string }, media: { type: number } } }
+        csatPorFluxo:
+          type: array
+          items: { type: object, required: [flowId, media], properties: { flowId: { type: string }, media: { type: number } } }
     FunilPorNo:
       type: object
       required: [nodes]
@@ -737,10 +762,19 @@ paths:
               properties:
                 estiloPrompt: { type: string }
                 conversacional: { type: boolean }
+                horarioAtivo: { type: boolean }
+                diasSemana:
+                  type: array
+                  items: { type: integer, minimum: 0, maximum: 6 }
+                horaInicio: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+                horaFim: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
       responses:
         "200":
           description: Config persistida
           content: { application/json: { schema: { $ref: '#/components/schemas/ConfigIA' } } }
+        "400":
+          description: horaInicio/horaFim malformado, janela invertida (horaFim <= horaInicio) ou diasSemana inválido — nada é persistido
+          content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } }
   /admin/users:
     get:
       tags: [Admin — Config/Users/Analytics/Audit]
@@ -855,6 +889,30 @@ paths:
       summary: Status do KYC
       security: []
       responses: { "200": { description: OK } }
+  /api/upload-documento:
+    post:
+      tags: [Interno (fluxo)]
+      summary: Upload de documento/comprovante pelo assistido (bucket privado) — avança a conversa
+      description: >
+        Sem JWT: autenticação é por posse do sessionId (thread_id da conversa).
+        Magic bytes decidem o mimetype real (Content-Type declarado nunca é
+        confiável) — jpeg/png/PDF até 10MB. Nunca retorna URL/key do S3 (LGPD).
+      security: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [sessionId, file]
+              properties:
+                sessionId: { type: string, description: "sessionId/thread_id da conversa (web ou wa:<numero>)" }
+                file: { type: string, format: binary, description: "jpeg/png/PDF, máx 10MB" }
+      responses:
+        "200": { description: "{ nome, tamanho, mimeType, messages } — conversa avançada" }
+        "404": { description: "sessionId inexistente ou conversa não ativa" }
+        "413": { description: Arquivo grande demais }
+        "415": { description: "Tipo de arquivo não aceito (magic bytes)" }
+        "429": { description: Rate limit de uploads excedido }
 
   # ── Mock (teste) ───────────────────────────────────────────
   /mock/verificar-cpf:
