@@ -34,7 +34,7 @@ export function DrawerChatTeste({
         className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
         // sem desfoque de fundo aqui — a trilha de execução (issue #125)
         // precisa do canvas nítido pra ser útil enquanto testa
-        overlayClassName="backdrop-blur-none"
+        overlayClassName="supports-backdrop-filter:backdrop-blur-none"
       >
         <SheetHeader className="border-b pb-4">
           <SheetTitle>Testar: {nomeFluxo}</SheetTitle>
