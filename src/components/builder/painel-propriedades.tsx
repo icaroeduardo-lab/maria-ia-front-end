@@ -78,6 +78,7 @@ export function PainelPropriedades({
         fluxoAtualId={fluxoAtualId}
         chaves={chaves}
       />
+      <CampoNota dados={dados} aoAtualizar={aoAtualizar} />
       <Button
         variant="outline"
         size="sm"
@@ -412,6 +413,38 @@ function CampoTextarea({
         value={texto(dados, nome)}
         onChange={(evento) => aoAtualizar(nome, evento.target.value)}
       />
+    </div>
+  )
+}
+
+/**
+ * Nota (card #20260162): metadado livre, opcional, disponível em QUALQUER
+ * tipo de nó — o engine ignora em runtime, serve só pra documentar decisões
+ * não óbvias no fluxo. Vive fora do switch por tipo (DRY): mesmo campo em
+ * todos os 9 tipos, sem duplicar por case.
+ */
+function CampoNota({
+  dados,
+  aoAtualizar,
+}: {
+  dados: Dados
+  aoAtualizar: (campo: string, valor: unknown) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5 border-t pt-3">
+      <Label htmlFor="campo-nota">Nota</Label>
+      <Textarea
+        id="campo-nota"
+        rows={2}
+        placeholder="ex: API fake, ajustar quando endpoint real existir"
+        value={texto(dados, "nota")}
+        onChange={(evento) =>
+          aoAtualizar("nota", evento.target.value || undefined)
+        }
+      />
+      <p className="text-xs text-muted-foreground">
+        anotação interna do fluxo — não aparece pro assistido, só no painel
+      </p>
     </div>
   )
 }
