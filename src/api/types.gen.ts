@@ -1545,7 +1545,7 @@ export interface paths {
         put?: never;
         /**
          * Chat de teste no painel (retorna resumo + metadados)
-         * @description Roda o grafo direto num checkpoint LangGraph de teste (thread_id: test:<flowId>:<sessionId>), sem criar Conversation. Resposta inclui tipoPerguntaPendente (cpf/telefone/cep/data/documento/ sim_nao/opcoes/texto/null), resolvido contra o flow informado (ou o registro estático se flowId for omitido) — o painel usa esse campo pra decidir o widget de resposta (ex: upload em vez de texto livre).
+         * @description Roda o grafo direto num checkpoint LangGraph de teste (thread_id: test:<flowId>:<sessionId>), sem criar Conversation. Resposta inclui tipoPerguntaPendente (cpf/telefone/cep/data/documento/ sim_nao/opcoes/texto/null), resolvido contra o flow informado (ou o registro estático se flowId for omitido) — o painel usa esse campo pra decidir o widget de resposta (ex: upload em vez de texto livre). Também inclui trilha: lista ordenada dos ids de node do flow visitados na sessão (do primeiro até o nó atual/pausado) — atravessa subfluxos embutidos naturalmente (ids prefixados sf_<node>_<idOriginal>). Vazio quando flowId é omitido (grafo estático, sem canvas) ou após reiniciar a sessão (novo sessionId ou #sair). Alimenta o destaque da trajetória no canvas do builder visual.
          */
         post: {
             parameters: {
@@ -1556,7 +1556,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description { messages, done, dadosColetados, tipoPerguntaPendente, resumo?, metadados? } */
+                /** @description { messages, done, dadosColetados, tipoPerguntaPendente, trilha, resumo?, metadados? } */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1596,7 +1596,7 @@ export interface paths {
         put?: never;
         /**
          * Upload de documento no chat de teste (issue
-         * @description Sem Conversation (chat de teste não cria uma) — auth é JWT admin (exigirAdmin), sem rate limit. Magic bytes decidem o mimetype real; avança o mesmo thread do chat de teste (test:<flowId>:<sessionId>) e devolve o mesmo shape de /admin/test-chat.
+         * @description Sem Conversation (chat de teste não cria uma) — auth é JWT admin (exigirAdmin), sem rate limit. Magic bytes decidem o mimetype real; avança o mesmo thread do chat de teste (test:<flowId>:<sessionId>) e devolve o mesmo shape de /admin/test-chat (incluindo trilha).
          */
         post: {
             parameters: {
@@ -1621,7 +1621,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description { messages, done, dadosColetados, tipoPerguntaPendente } */
+                /** @description { messages, done, dadosColetados, tipoPerguntaPendente, trilha } */
                 200: {
                     headers: {
                         [name: string]: unknown;
