@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
+  Info,
   LayoutGrid,
   Play,
   Save,
@@ -51,6 +52,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErroApi } from "@/lib/api"
@@ -179,6 +185,9 @@ function NoDoEngine({ id, type, data }: NodeProps) {
   const temErroDeValidacao = erros.has(id)
   const temAvisoDeValidacao = !temErroDeValidacao && avisos.has(id)
   const statsFunil = funil?.get(id)
+  // Nota (card #20260162): metadado livre do editor, ignorado pelo engine em
+  // runtime — só indicador visual + hover no canvas.
+  const nota = typeof dados.nota === "string" ? dados.nota.trim() : ""
   return (
     <div
       className={cn(
@@ -194,6 +203,23 @@ function NoDoEngine({ id, type, data }: NodeProps) {
       )}
     >
       {statsFunil && <BadgeFunil stats={statsFunil} />}
+      {nota && (
+        <HoverCard>
+          <HoverCardTrigger
+            render={
+              <span
+                aria-label="Ver nota do nó"
+                className="absolute -top-2 -right-2 flex size-4 items-center justify-center rounded-full bg-blue-600 text-white"
+              />
+            }
+          >
+            <Info className="size-3" />
+          </HoverCardTrigger>
+          <HoverCardContent className="w-64 text-xs whitespace-pre-wrap">
+            {nota}
+          </HoverCardContent>
+        </HoverCard>
+      )}
       <Handle type="target" position={Position.Top} />
       <span className="font-medium">{type}</span>
       {resumo && <span className="text-muted-foreground">: {resumo}</span>}
