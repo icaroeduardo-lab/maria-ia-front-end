@@ -1543,7 +1543,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Chat de teste no painel (retorna resumo + metadados) */
+        /**
+         * Chat de teste no painel (retorna resumo + metadados)
+         * @description Roda o grafo direto num checkpoint LangGraph de teste (thread_id: test:<flowId>:<sessionId>), sem criar Conversation. Resposta inclui tipoPerguntaPendente (cpf/telefone/cep/data/documento/ sim_nao/opcoes/texto/null), resolvido contra o flow informado (ou o registro estático se flowId for omitido) — o painel usa esse campo pra decidir o widget de resposta (ex: upload em vez de texto livre).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -1553,8 +1556,108 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
+                /** @description { messages, done, dadosColetados, tipoPerguntaPendente, resumo?, metadados? } */
                 200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Fluxo não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Flow inválido (falha ao compilar) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/test-chat/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload de documento no chat de teste (issue
+         * @description Sem Conversation (chat de teste não cria uma) — auth é JWT admin (exigirAdmin), sem rate limit. Magic bytes decidem o mimetype real; avança o mesmo thread do chat de teste (test:<flowId>:<sessionId>) e devolve o mesmo shape de /admin/test-chat.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "multipart/form-data": {
+                        /** @description sessionId da sessão de teste */
+                        sessionId: string;
+                        /** @description flow de teste (opcional — omitido usa o grafo estático) */
+                        flowId?: string;
+                        /**
+                         * Format: binary
+                         * @description jpeg/png/PDF, máx 10MB
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description { messages, done, dadosColetados, tipoPerguntaPendente } */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description sessionId ou arquivo ausente */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Fluxo não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Arquivo grande demais */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Tipo de arquivo não aceito (magic bytes) */
+                415: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Flow inválido (falha ao compilar) */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
