@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
+  LayoutGrid,
   Play,
   Save,
   Search,
@@ -53,6 +54,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErroApi } from "@/lib/api"
+import { getLayoutedElements } from "@/lib/auto-layout"
 import { extrairChavesDoFluxo } from "@/lib/chaves-fluxo"
 import {
   listarVersoes,
@@ -295,7 +297,7 @@ export function PaginaBuilder() {
 function ConteudoBuilder() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { screenToFlowPosition, setCenter } = useReactFlow()
+  const { screenToFlowPosition, setCenter, fitView } = useReactFlow()
 
   const [fluxo, setFluxo] = React.useState<Fluxo | null>(null)
   const [erroCarga, setErroCarga] = React.useState(false)
@@ -774,11 +776,26 @@ function ConteudoBuilder() {
     setAlterado(true)
   }
 
-  function salvar() {
+  // Auto-layout do canvas (card #20260160) — só roda quando o usuário clica
+  // em "Organizar", nunca automático ao abrir o fluxo (não desfazer ajuste
+  // manual de alguém). Aplica no canvas, recentraliza a view e já persiste
+  // (mesmo mecanismo de sempre — salvar() cuida de lock otimista e 409).
+  function organizarLayout() {
+    if (previewCanvas || diffAtivo || salvando || nodes.length === 0) return
+    const layout = getLayoutedElements(nodes, edges, "TB")
+    setNodes(layout.nodes)
+    setAlterado(true)
+    window.requestAnimationFrame(() => {
+      fitView({ duration: 300 })
+    })
+    salvar(layout.nodes, edges)
+  }
+
+  function salvar(nodesParaSalvar: Node[] = nodes, edgesParaSalvar: Edge[] = edges) {
     if (!id || !fluxo || salvando) return
     setSalvando(true)
     setErroSalvar(false)
-    const corpo = paraApi(nodes, edges)
+    const corpo = paraApi(nodesParaSalvar, edgesParaSalvar)
     salvarFluxo(id, {
       name: fluxo.name,
       nodes: corpo.nodes,
@@ -910,6 +927,17 @@ function ConteudoBuilder() {
           <Button
             variant="outline"
             size="sm"
+            disabled={
+              !!previewCanvas || !!diffAtivo || salvando || nodes.length === 0
+            }
+            onClick={organizarLayout}
+          >
+            <LayoutGrid className="size-4" />
+            Organizar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setChatDeTesteAberto(true)}
           >
             <Play className="size-4" />
@@ -922,7 +950,7 @@ function ConteudoBuilder() {
           <Button
             size="sm"
             disabled={!alterado || salvando || !!previewCanvas || !!diffAtivo}
-            onClick={salvar}
+            onClick={() => salvar()}
           >
             <Save className="size-4" />
             {salvando ? "Salvando..." : "Salvar"}
