@@ -41,7 +41,7 @@ import { PainelDiff } from "@/components/builder/painel-diff"
 import { PainelHistorico } from "@/components/builder/painel-historico"
 import { PainelPropriedades } from "@/components/builder/painel-propriedades"
 import { PainelValidacao } from "@/components/builder/painel-validacao"
-import { DrawerChatTeste } from "@/components/chat-teste/drawer-chat-teste"
+import { PainelChatTeste } from "@/components/chat-teste/painel-chat-teste"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1189,6 +1189,18 @@ function ConteudoBuilder() {
             aoComparar={compararVersoes}
             aoFechar={() => setHistoricoAberto(false)}
           />
+        ) : chatDeTesteAberto && id ? (
+          <PainelChatTeste
+            flowId={id}
+            nomeFluxo={fluxo.name}
+            aoFechar={() => {
+              setChatDeTesteAberto(false)
+              // fechar o painel apaga o destaque da trajetória no canvas
+              // (issue #125) — reabrir começa sem trilha até a 1ª resposta.
+              setTrilhaChatTeste([])
+            }}
+            aoMudarTrilha={setTrilhaChatTeste}
+          />
         ) : noSelecionado ? (
           <PainelPropriedades
             key={noSelecionado.id}
@@ -1241,21 +1253,6 @@ function ConteudoBuilder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {id && (
-        <DrawerChatTeste
-          flowId={id}
-          nomeFluxo={fluxo.name}
-          open={chatDeTesteAberto}
-          onOpenChange={(aberto) => {
-            setChatDeTesteAberto(aberto)
-            // fechar o drawer apaga o destaque da trajetória no canvas
-            // (issue #125) — reabrir começa sem trilha até a 1ª resposta.
-            if (!aberto) setTrilhaChatTeste([])
-          }}
-          aoMudarTrilha={setTrilhaChatTeste}
-        />
-      )}
 
       <AlertDialog
         open={versaoParaRestaurar !== null}
