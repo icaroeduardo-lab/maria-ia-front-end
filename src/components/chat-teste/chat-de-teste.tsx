@@ -22,9 +22,15 @@ import {
 export function ChatDeTeste({
   flowId,
   nomeFluxo = "Maria",
+  aoMudarTrilha,
 }: {
   flowId: string
   nomeFluxo?: string
+  // Trilha de execução (issue #125): repassa ao dono do canvas (builder)
+  // pra destacar a trajetória percorrida. Chamado a cada resposta e ao
+  // reiniciar (trilha volta a []) — quem consome decide se/como limpar o
+  // destaque quando o chat fecha (ver DrawerChatTeste).
+  aoMudarTrilha?: (trilha: string[]) => void
 }) {
   const [sessionId, setSessionId] = React.useState(() =>
     gerarSessionIdDeTeste()
@@ -53,6 +59,7 @@ export function ChatDeTeste({
           setMensagens((atuais) => [...atuais, ...resposta.messages])
           setDadosColetados(resposta.dadosColetados)
           setEncerrado(resposta.done)
+          aoMudarTrilha?.(resposta.trilha ?? [])
         })
         .catch((falha) => {
           setErro(
@@ -63,7 +70,7 @@ export function ChatDeTeste({
         })
         .finally(() => setCarregando(false))
     },
-    [flowId]
+    [flowId, aoMudarTrilha]
   )
 
   React.useEffect(() => {
@@ -93,6 +100,9 @@ export function ChatDeTeste({
     setRascunho("")
     setErro(null)
     setSessionId(gerarSessionIdDeTeste())
+    // reiniciar zera a sessão no back (#sair / sessionId novo) → trilha
+    // vazia até a 1ª resposta da sessão nova chegar.
+    aoMudarTrilha?.([])
   }
 
   /**

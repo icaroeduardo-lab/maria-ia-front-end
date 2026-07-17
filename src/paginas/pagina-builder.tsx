@@ -7,6 +7,7 @@ import {
   Background,
   Controls,
   Handle,
+  Panel,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -85,6 +86,11 @@ import {
 import { duplicarSubArvore } from "@/lib/duplicar-subarvore"
 import { obterFunil, type FunilPorNo } from "@/lib/funil"
 import { TIPOS_DE_NO, type TipoDeNo } from "@/lib/nos-builder"
+import {
+  ContextoTrilhaArestas,
+  ContextoTrilhaCanvas,
+  resolverIdDaTrilha,
+} from "@/lib/trilha-canvas"
 import { cn } from "@/lib/utils"
 import { extrairIdDoNoDaMensagem } from "@/lib/validacao-fluxo"
 
@@ -175,6 +181,9 @@ function NoDoEngine({ id, type, data }: NodeProps) {
   const emFocoNaBusca = React.useContext(ContextoBuscaCanvas) === id
   const diff = React.useContext(ContextoDiffCanvas)
   const statusDiff = diff?.get(id)
+  const trilha = React.useContext(ContextoTrilhaCanvas)
+  const noPercorrido = trilha?.visitados.has(id) ?? false
+  const noPausado = trilha?.atual === id
   const dados = data as Record<string, unknown>
   const resumo = resumoDoNo(dados)
   // Skip-gate do engine: pergunta com chave já preenchida é pulada.
@@ -199,9 +208,19 @@ function NoDoEngine({ id, type, data }: NodeProps) {
         statusDiff === "alterado" &&
           "border-2 border-dashed border-amber-500",
         statusDiff === "removido" &&
-          "border-2 border-dashed border-destructive opacity-60"
+          "border-2 border-dashed border-destructive opacity-60",
+        // Trilha do chat de teste (issue #125) — indigo (não o azul já usado
+        // pelo foco de busca acima) pro trecho percorrido; amarelo/laranja
+        // mais grosso + badge pro nó onde a conversa está pausada agora.
+        noPercorrido && "border-2 border-indigo-500",
+        noPausado && "border-[3px] border-amber-500 ring-2 ring-amber-500/40"
       )}
     >
+      {noPausado && (
+        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] leading-none font-bold text-white uppercase shadow">
+          Pausado
+        </span>
+      )}
       {statsFunil && <BadgeFunil stats={statsFunil} />}
       {nota && (
         <HoverCard>
@@ -350,6 +369,10 @@ function ConteudoBuilder() {
   const [indiceBusca, setIndiceBusca] = React.useState(0)
   const inputBuscaRef = React.useRef<HTMLInputElement>(null)
   const [chatDeTesteAberto, setChatDeTesteAberto] = React.useState(false)
+  // Trilha de execução do chat de teste (issue #125) — ids CRUS vindos da
+  // API (ver RespostaTestChat.trilha); [] enquanto não há sessão/resposta
+  // ainda, ou depois de reiniciar. Limpa ao fechar o drawer (mais abaixo).
+  const [trilhaChatTeste, setTrilhaChatTeste] = React.useState<string[]>([])
   const [historicoAberto, setHistoricoAberto] = React.useState(false)
   const [versoes, setVersoes] = React.useState<VersaoResumo[] | null>(null)
   const [erroVersoes, setErroVersoes] = React.useState(false)
@@ -581,6 +604,48 @@ function ConteudoBuilder() {
     }
     return { erros, avisos }
   }, [resultadoValidacao, idsConhecidos])
+
+  // Trilha do chat de teste (issue #125) resolvida pros ids do canvas atual
+  // (ver resolverIdDaTrilha) — [] quando o drawer está fechado ou a sessão
+  // ainda não respondeu nada.
+  const idsSubfluxo = React.useMemo(
+    () => nodes.filter((no) => no.type === "subfluxo").map((no) => no.id),
+    [nodes]
+  )
+  const trilhaResolvida = React.useMemo(() => {
+    const idsCanvas = new Set(idsConhecidos)
+    const resolvidos: string[] = []
+    for (const idTrilha of trilhaChatTeste) {
+      const resolvido = resolverIdDaTrilha(idTrilha, idsCanvas, idsSubfluxo)
+      if (resolvido) resolvidos.push(resolvido)
+    }
+    return resolvidos
+  }, [trilhaChatTeste, idsConhecidos, idsSubfluxo])
+
+  const destaqueTrilhaNos = React.useMemo(() => {
+    if (trilhaResolvida.length === 0) return null
+    const atual = trilhaResolvida[trilhaResolvida.length - 1]
+    const visitados = new Set(trilhaResolvida.slice(0, -1))
+    // repetição (loop dentro de um subfluxo, por ex.) nunca deixa o nó
+    // atual marcado como "já percorrido" também.
+    visitados.delete(atual)
+    return { visitados, atual }
+  }, [trilhaResolvida])
+
+  // Plus da issue #125: arestas entre passos consecutivos da trilha.
+  const destaqueTrilhaArestas = React.useMemo(() => {
+    const idsArestas = new Set<string>()
+    for (let i = 0; i < trilhaResolvida.length - 1; i++) {
+      const origem = trilhaResolvida[i]
+      const destino = trilhaResolvida[i + 1]
+      if (origem === destino) continue // passos consecutivos no mesmo subfluxo colapsam no mesmo nó
+      const aresta = edges.find(
+        (a) => a.source === origem && a.target === destino
+      )
+      if (aresta) idsArestas.add(aresta.id)
+    }
+    return idsArestas
+  }, [trilhaResolvida, edges])
 
   function validar() {
     if (!id || validando) return
@@ -1055,30 +1120,49 @@ function ConteudoBuilder() {
                 value={resultadosBusca[indiceBusca] ?? null}
               >
                 <ContextoDiffCanvas.Provider value={mapaDiffPorNo}>
-                  <ReactFlow
-                    nodes={previewCanvas?.nodes ?? diffAtivo?.canvas.nodes ?? nodes}
-                    edges={previewCanvas?.edges ?? diffAtivo?.canvas.edges ?? edges}
-                    nodeTypes={tiposDeNoDoCanvas}
-                    edgeTypes={tiposDeAresta}
-                    onNodesChange={aoMudarNodes}
-                    onEdgesChange={aoMudarEdges}
-                    onConnect={aoConectar}
-                    onNodeContextMenu={(evento, no) => {
-                      if (previewCanvas || diffAtivo) return
-                      evento.preventDefault()
-                      setMenuContexto({ noId: no.id, x: evento.clientX, y: evento.clientY })
-                    }}
-                    onPaneClick={() => setMenuContexto(null)}
-                    onMove={() => setMenuContexto(null)}
-                    nodesDraggable={!previewCanvas && !diffAtivo}
-                    nodesConnectable={!previewCanvas && !diffAtivo}
-                    elementsSelectable={!previewCanvas && !diffAtivo}
-                    fitView
-                    proOptions={{ hideAttribution: true }}
-                  >
-                    <Background />
-                    <Controls />
-                  </ReactFlow>
+                  <ContextoTrilhaCanvas.Provider value={destaqueTrilhaNos}>
+                    <ContextoTrilhaArestas.Provider value={destaqueTrilhaArestas}>
+                      <ReactFlow
+                        nodes={previewCanvas?.nodes ?? diffAtivo?.canvas.nodes ?? nodes}
+                        edges={previewCanvas?.edges ?? diffAtivo?.canvas.edges ?? edges}
+                        nodeTypes={tiposDeNoDoCanvas}
+                        edgeTypes={tiposDeAresta}
+                        onNodesChange={aoMudarNodes}
+                        onEdgesChange={aoMudarEdges}
+                        onConnect={aoConectar}
+                        onNodeContextMenu={(evento, no) => {
+                          if (previewCanvas || diffAtivo) return
+                          evento.preventDefault()
+                          setMenuContexto({ noId: no.id, x: evento.clientX, y: evento.clientY })
+                        }}
+                        onPaneClick={() => setMenuContexto(null)}
+                        onMove={() => setMenuContexto(null)}
+                        nodesDraggable={!previewCanvas && !diffAtivo}
+                        nodesConnectable={!previewCanvas && !diffAtivo}
+                        elementsSelectable={!previewCanvas && !diffAtivo}
+                        fitView
+                        proOptions={{ hideAttribution: true }}
+                      >
+                        <Background />
+                        <Controls />
+                        {chatDeTesteAberto && destaqueTrilhaNos && (
+                          <Panel
+                            position="bottom-left"
+                            className="flex flex-col gap-1 rounded-md border bg-background/95 px-2.5 py-2 text-[10px] shadow-sm"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span className="inline-block size-2.5 rounded-full border-2 border-indigo-500" />
+                              Percorrido no chat de teste
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <span className="inline-block size-2.5 rounded-full border-[3px] border-amber-500" />
+                              Pausado agora
+                            </span>
+                          </Panel>
+                        )}
+                      </ReactFlow>
+                    </ContextoTrilhaArestas.Provider>
+                  </ContextoTrilhaCanvas.Provider>
                 </ContextoDiffCanvas.Provider>
               </ContextoBuscaCanvas.Provider>
             </ContextoFunilCanvas.Provider>
@@ -1163,7 +1247,13 @@ function ConteudoBuilder() {
           flowId={id}
           nomeFluxo={fluxo.name}
           open={chatDeTesteAberto}
-          onOpenChange={setChatDeTesteAberto}
+          onOpenChange={(aberto) => {
+            setChatDeTesteAberto(aberto)
+            // fechar o drawer apaga o destaque da trajetória no canvas
+            // (issue #125) — reabrir começa sem trilha até a 1ª resposta.
+            if (!aberto) setTrilhaChatTeste([])
+          }}
+          aoMudarTrilha={setTrilhaChatTeste}
         />
       )}
 

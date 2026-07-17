@@ -39,6 +39,14 @@ export interface RespostaTestChat {
   messages: MensagemTestChat[]
   done: boolean
   dadosColetados: Record<string, unknown>
+  // Trilha de execução (issue #93 do back, card #20260163): ids ORDENADOS
+  // dos nodes do flow visitados na sessão, do primeiro até o nó atual/
+  // pausado — alimenta o destaque da trajetória no canvas (issue #125).
+  // Ids de nós dentro de um subfluxo embutido vêm prefixados
+  // `sf_<idDoNoSubfluxo>_<idOriginalNoSubflow>` (ver resolverIdDaTrilha em
+  // pagina-builder.tsx) — não são ids "crus" do canvas do fluxo pai.
+  // Ausente em respostas antigas/mockadas → default [] no consumidor.
+  trilha?: string[]
 }
 
 export function gerarSessionIdDeTeste(): string {

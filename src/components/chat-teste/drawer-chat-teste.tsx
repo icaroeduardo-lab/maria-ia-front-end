@@ -17,11 +17,15 @@ export function DrawerChatTeste({
   nomeFluxo,
   open,
   onOpenChange,
+  aoMudarTrilha,
 }: {
   flowId: string
   nomeFluxo: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  // Trilha de execução (issue #125) — repassada ao builder pra destacar a
+  // trajetória no canvas enquanto o drawer está aberto e há sessão ativa.
+  aoMudarTrilha?: (trilha: string[]) => void
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -35,7 +39,12 @@ export function DrawerChatTeste({
         <div className="min-h-0 flex-1">
           {/* key força sessão nova (sessionId gerado no mount) sempre
               que o drawer reabre, mesmo pro mesmo fluxo */}
-          <ChatDeTeste key={flowId} flowId={flowId} nomeFluxo={nomeFluxo} />
+          <ChatDeTeste
+            key={flowId}
+            flowId={flowId}
+            nomeFluxo={nomeFluxo}
+            aoMudarTrilha={aoMudarTrilha}
+          />
         </div>
       </SheetContent>
     </Sheet>

@@ -1,3 +1,4 @@
+import * as React from "react"
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -6,6 +7,7 @@ import {
   type EdgeProps,
 } from "@xyflow/react"
 
+import { ContextoTrilhaArestas } from "@/lib/trilha-canvas"
 import { cn } from "@/lib/utils"
 
 /**
@@ -25,6 +27,9 @@ export function ArestaRotulada({
   selected,
 }: EdgeProps) {
   const origem = useInternalNode(source)
+  // Trilha do chat de teste (issue #125, plus opcional): arestas entre
+  // passos consecutivos da trajetória percorrida ganham destaque.
+  const naTrilha = React.useContext(ContextoTrilhaArestas).has(id)
   const [caminho, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -42,7 +47,11 @@ export function ArestaRotulada({
 
   return (
     <>
-      <BaseEdge id={id} path={caminho} />
+      <BaseEdge
+        id={id}
+        path={caminho}
+        style={naTrilha ? { stroke: "#6366f1", strokeWidth: 2.5 } : undefined}
+      />
       {(texto || ehDefault) && (
         <EdgeLabelRenderer>
           <div
