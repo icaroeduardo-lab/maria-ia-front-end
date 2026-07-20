@@ -1204,6 +1204,7 @@ function ConteudoBuilder() {
         ) : noSelecionado ? (
           <PainelPropriedades
             key={noSelecionado.id}
+            id={noSelecionado.id}
             tipo={noSelecionado.type as TipoDeNo}
             dados={noSelecionado.data as Record<string, unknown>}
             aoAtualizar={atualizarDadosDoNo}
