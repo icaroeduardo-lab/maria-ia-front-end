@@ -4,7 +4,7 @@ import { CampoImagem } from "@/components/builder/campo-imagem"
 import { CampoInterpolavel } from "@/components/builder/campo-interpolavel"
 import { CampoSubfluxo } from "@/components/builder/campo-subfluxo"
 import { CampoCurlParser } from "@/components/builder/campo-curl-parser"
-import { Maximize2, Minimize2, Trash2 } from "lucide-react"
+import { Check, Copy, Maximize2, Minimize2, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,11 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { ChaveDoFluxo } from "@/lib/chaves-fluxo"
 import {
   INFO_DOS_NOS,
@@ -32,6 +37,7 @@ type Dados = Record<string, unknown>
  * com os campos de `data` do guia §2.2.
  */
 export function PainelPropriedades({
+  id,
   tipo,
   dados,
   aoAtualizar,
@@ -39,6 +45,8 @@ export function PainelPropriedades({
   fluxoAtualId,
   chaves,
 }: {
+  /** Id do nó selecionado no JSON do fluxo (`node.id`) — não confundir com `data.chave`. */
+  id: string
   tipo: TipoDeNo
   dados: Dados
   aoAtualizar: (campo: string, valor: unknown) => void
@@ -54,6 +62,7 @@ export function PainelPropriedades({
     <aside
       className={`flex ${ampliado ? "w-lg" : "w-72"} shrink-0 flex-col gap-4 overflow-y-auto rounded-md border p-3 transition-[width]`}
     >
+      <BlocoIdNo id={id} />
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold">Propriedades</p>
@@ -89,6 +98,70 @@ export function PainelPropriedades({
         Excluir nó
       </Button>
     </aside>
+  )
+}
+
+/**
+ * Bloco fixo no topo do painel (card #20260168 / issue #132) mostrando o
+ * `id` do nó selecionado — comum a todos os tipos, por isso vive fora do
+ * switch por tipo, igual à CampoNota. Só leitura; o botão copia o id via
+ * clipboard e dá feedback visual (ícone vira check) por ~1.5s.
+ */
+function BlocoIdNo({ id }: { id: string }) {
+  const [copiado, setCopiado] = React.useState(false)
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
+
+  async function copiarId() {
+    try {
+      await navigator.clipboard.writeText(id)
+      setCopiado(true)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      timeoutRef.current = setTimeout(() => setCopiado(false), 1500)
+    } catch {
+      // clipboard indisponível (ex: contexto não-seguro) — falha silenciosa
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5">
+      <span
+        className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground"
+        title={id}
+      >
+        {id}
+      </span>
+      {copiado && (
+        <span className="shrink-0 text-xs text-muted-foreground">
+          copiado!
+        </span>
+      )}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Copiar id do nó"
+              className="shrink-0"
+              onClick={copiarId}
+            />
+          }
+        >
+          {copiado ? (
+            <Check className="size-3.5" />
+          ) : (
+            <Copy className="size-3.5" />
+          )}
+        </TooltipTrigger>
+        <TooltipContent>{copiado ? "copiado!" : "copiar id"}</TooltipContent>
+      </Tooltip>
+    </div>
   )
 }
 
