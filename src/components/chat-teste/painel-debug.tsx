@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 /**
  * Painel de debug do chat de teste: `dadosColetados` ao vivo + indicador
  * de fluxo encerrado (docs/guia-frontend.md §2.3, wireframe do card).
+ * Vive isolado na aba "Dados coletados" (issue #135), com scroll próprio
+ * dado pelo container da aba — aqui só o conteúdo.
  */
 export function PainelDebug({
   dadosColetados,
@@ -16,7 +18,7 @@ export function PainelDebug({
   const chaves = Object.keys(dadosColetados)
 
   return (
-    <div className="flex flex-col gap-2 border-t bg-muted/40 px-4 py-3">
+    <div className="flex flex-col gap-2 rounded-md border bg-muted/40 px-4 py-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground">
           dadosColetados

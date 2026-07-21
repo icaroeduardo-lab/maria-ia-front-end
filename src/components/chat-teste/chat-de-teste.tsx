@@ -7,6 +7,12 @@ import { PainelDebug } from "@/components/chat-teste/painel-debug"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import { ErroApi } from "@/lib/api"
 import {
   enviarMensagemDeTeste,
@@ -44,6 +50,10 @@ export function ChatDeTeste({
   const [carregando, setCarregando] = React.useState(false)
   const [erro, setErro] = React.useState<string | null>(null)
   const [modoWhatsApp, setModoWhatsApp] = React.useState(false)
+  // Guias (issue #135): separa conversa de dadosColetados, mas o estado
+  // continua todo aqui no pai — trocar de aba só troca o que é exibido,
+  // não desmonta mensagens/dadosColetados/sessionId.
+  const [aba, setAba] = React.useState<"conversa" | "dados">("conversa")
   const fimDaListaRef = React.useRef<HTMLDivElement>(null)
 
   const enviar = React.useCallback(
@@ -182,39 +192,60 @@ export function ChatDeTeste({
         </div>
       </div>
 
-      {modoWhatsApp ? (
-        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 py-4">
-          <MockupCelular nomeFluxo={nomeFluxo}>
-            {conteudoMensagens}
-          </MockupCelular>
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
-          {conteudoMensagens}
-        </div>
-      )}
-
-      <form
-        onSubmit={enviarRascunho}
-        className="flex items-center gap-2 border-t p-3"
+      <Tabs
+        value={aba}
+        onValueChange={(valor) => setAba(valor as "conversa" | "dados")}
+        className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <Input
-          value={rascunho}
-          onChange={(evento) => setRascunho(evento.target.value)}
-          placeholder="Digite a resposta..."
-          disabled={carregando || encerrado}
-        />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={!rascunho.trim() || carregando || encerrado}
-          aria-label="Enviar"
-        >
-          <Send className="size-4" />
-        </Button>
-      </form>
+        <TabsList className="mx-4 mt-3 self-start">
+          <TabsTrigger value="conversa">Conversa</TabsTrigger>
+          <TabsTrigger value="dados">Dados coletados</TabsTrigger>
+        </TabsList>
 
-      <PainelDebug dadosColetados={dadosColetados} encerrado={encerrado} />
+        <TabsContent
+          value="conversa"
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          {modoWhatsApp ? (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 py-4">
+              <MockupCelular nomeFluxo={nomeFluxo}>
+                {conteudoMensagens}
+              </MockupCelular>
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
+              {conteudoMensagens}
+            </div>
+          )}
+
+          <form
+            onSubmit={enviarRascunho}
+            className="flex items-center gap-2 border-t p-3"
+          >
+            <Input
+              value={rascunho}
+              onChange={(evento) => setRascunho(evento.target.value)}
+              placeholder="Digite a resposta..."
+              disabled={carregando || encerrado}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!rascunho.trim() || carregando || encerrado}
+              aria-label="Enviar"
+            >
+              <Send className="size-4" />
+            </Button>
+          </form>
+        </TabsContent>
+
+        <TabsContent
+          value="dados"
+          className="min-h-0 flex-1 overflow-y-auto p-4"
+        >
+          <PainelDebug dadosColetados={dadosColetados} encerrado={encerrado} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
