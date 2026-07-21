@@ -445,9 +445,16 @@ function ConteudoBuilder() {
         setAlterado(false)
         setConflito(false)
         setErroCarga(false)
+        // `fitView` do <ReactFlow> só roda no mount inicial — trocar de
+        // fluxo (ex: drill-in de subfluxo, issue #137) não remonta o
+        // componente, então sem isso a view antiga ficava, mostrando os
+        // nós do fluxo novo fora de enquadro (às vezes só um canto vazio).
+        window.requestAnimationFrame(() => {
+          fitView({ duration: 300 })
+        })
       })
       .catch(() => setErroCarga(true))
-  }, [id])
+  }, [id, fitView])
 
   // Drill-in em subfluxo (issue #137): navega pro fluxo referenciado
   // acrescentando o nível atual à trilha existente (recursivo — abrir um
