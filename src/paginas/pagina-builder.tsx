@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useNavigate, useParams } from "react-router"
+import { useNavigate, useParams, useSearchParams } from "react-router"
 import {
   addEdge,
   applyEdgeChanges,
@@ -331,6 +331,34 @@ function novoIdDeNo(existentes: Set<string>): string {
   return id
 }
 
+/**
+ * Um nível da trilha de drill-in em subfluxo (issue #137): id + nome do
+ * fluxo ancestral. Vai codificado no query param `path` da URL (não em
+ * state em memória) pra sobreviver a F5 e ao botão voltar do navegador.
+ */
+type ItemTrilhaSubfluxo = { id: string; nome: string }
+
+function decodificarTrilhaSubfluxo(bruto: string | null): ItemTrilhaSubfluxo[] {
+  if (!bruto) return []
+  try {
+    const dados: unknown = JSON.parse(bruto)
+    if (!Array.isArray(dados)) return []
+    return dados.filter(
+      (item): item is ItemTrilhaSubfluxo =>
+        !!item &&
+        typeof item === "object" &&
+        typeof (item as ItemTrilhaSubfluxo).id === "string" &&
+        typeof (item as ItemTrilhaSubfluxo).nome === "string"
+    )
+  } catch {
+    return []
+  }
+}
+
+function codificarTrilhaSubfluxo(trilha: ItemTrilhaSubfluxo[]): string {
+  return encodeURIComponent(JSON.stringify(trilha))
+}
+
 export function PaginaBuilder() {
   return (
     <ReactFlowProvider>
@@ -342,7 +370,15 @@ export function PaginaBuilder() {
 function ConteudoBuilder() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [parametrosBusca] = useSearchParams()
   const { screenToFlowPosition, setCenter, fitView } = useReactFlow()
+
+  // Trilha de drill-in em subfluxo (issue #137) — vem do query param `path`,
+  // não de state em memória, pra sobreviver a F5 e ao "voltar" do navegador.
+  const trilhaSubfluxo = React.useMemo(
+    () => decodificarTrilhaSubfluxo(parametrosBusca.get("path")),
+    [parametrosBusca]
+  )
 
   const [fluxo, setFluxo] = React.useState<Fluxo | null>(null)
   const [erroCarga, setErroCarga] = React.useState(false)
@@ -412,6 +448,31 @@ function ConteudoBuilder() {
       })
       .catch(() => setErroCarga(true))
   }, [id])
+
+  // Drill-in em subfluxo (issue #137): navega pro fluxo referenciado
+  // acrescentando o nível atual à trilha existente (recursivo — abrir um
+  // subfluxo que já é resultado de um drill-in anterior CRESCE o path, não
+  // substitui). A troca de `id` na URL já dispara `carregar()` via o
+  // useEffect abaixo — não duplica a lógica de carga.
+  function abrirSubfluxo(refFlowId: string) {
+    if (!fluxo) return
+    const novaTrilha = [...trilhaSubfluxo, { id: fluxo.id, nome: fluxo.name }]
+    navigate(
+      `/fluxos/${refFlowId}/builder?path=${codificarTrilhaSubfluxo(novaTrilha)}`
+    )
+  }
+
+  // Clicar num nível do breadcrumb volta pro fluxo daquele nível, truncando
+  // a trilha até ali (os níveis mais profundos deixam de existir na URL).
+  function navegarParaNivelTrilha(indice: number) {
+    const nivel = trilhaSubfluxo[indice]
+    if (!nivel) return
+    const restante = trilhaSubfluxo.slice(0, indice)
+    const query = restante.length
+      ? `?path=${codificarTrilhaSubfluxo(restante)}`
+      : ""
+    navigate(`/fluxos/${nivel.id}/builder${query}`)
+  }
 
   function abrirHistorico() {
     setHistoricoAberto(true)
@@ -943,7 +1004,34 @@ function ConteudoBuilder() {
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <h2 className="text-sm font-semibold">{fluxo.name}</h2>
+        {trilhaSubfluxo.length > 0 ? (
+          <nav
+            aria-label="Caminho de subfluxos"
+            className="flex min-w-0 items-center gap-1 text-sm"
+          >
+            {trilhaSubfluxo.map((nivel, indice) => (
+              <React.Fragment key={nivel.id}>
+                <button
+                  type="button"
+                  className="max-w-40 truncate text-muted-foreground hover:text-foreground hover:underline"
+                  title={nivel.nome}
+                  onClick={() => navegarParaNivelTrilha(indice)}
+                >
+                  {nivel.nome}
+                </button>
+                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+              </React.Fragment>
+            ))}
+            <span
+              className="max-w-48 truncate font-semibold"
+              title={fluxo.name}
+            >
+              {fluxo.name}
+            </span>
+          </nav>
+        ) : (
+          <h2 className="text-sm font-semibold">{fluxo.name}</h2>
+        )}
         {alterado && (
           <span className="text-xs text-muted-foreground">
             alterações não salvas
@@ -1211,6 +1299,7 @@ function ConteudoBuilder() {
             aoExcluir={pedirExclusaoDoNo}
             fluxoAtualId={id}
             chaves={chaves}
+            aoAbrirSubfluxo={abrirSubfluxo}
           />
         ) : arestaSelecionada ? (
           <PainelAresta

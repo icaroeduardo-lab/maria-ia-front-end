@@ -4,7 +4,14 @@ import { CampoImagem } from "@/components/builder/campo-imagem"
 import { CampoInterpolavel } from "@/components/builder/campo-interpolavel"
 import { CampoSubfluxo } from "@/components/builder/campo-subfluxo"
 import { CampoCurlParser } from "@/components/builder/campo-curl-parser"
-import { Check, Copy, Maximize2, Minimize2, Trash2 } from "lucide-react"
+import {
+  ArrowUpRight,
+  Check,
+  Copy,
+  Maximize2,
+  Minimize2,
+  Trash2,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,6 +51,7 @@ export function PainelPropriedades({
   aoExcluir,
   fluxoAtualId,
   chaves,
+  aoAbrirSubfluxo,
 }: {
   /** Id do nó selecionado no JSON do fluxo (`node.id`) — não confundir com `data.chave`. */
   id: string
@@ -54,6 +62,9 @@ export function PainelPropriedades({
   aoExcluir: () => void
   fluxoAtualId?: string
   chaves: ChaveDoFluxo[]
+  /** Drill-in em subfluxo (issue #137) — abre o fluxo referenciado inline,
+   * acrescentando o nível atual ao breadcrumb. Só usado no case "subfluxo". */
+  aoAbrirSubfluxo?: (refFlowId: string) => void
 }) {
   const info = INFO_DOS_NOS[tipo]
   const [ampliado, setAmpliado] = React.useState(false)
@@ -87,6 +98,16 @@ export function PainelPropriedades({
         fluxoAtualId={fluxoAtualId}
         chaves={chaves}
       />
+      {tipo === "subfluxo" && texto(dados, "refFlowId") && aoAbrirSubfluxo && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => aoAbrirSubfluxo(texto(dados, "refFlowId"))}
+        >
+          <ArrowUpRight />
+          Abrir subfluxo
+        </Button>
+      )}
       <CampoNota dados={dados} aoAtualizar={aoAtualizar} />
       <Button
         variant="outline"
