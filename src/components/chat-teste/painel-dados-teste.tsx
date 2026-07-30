@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Plus, RotateCcw, Save, X } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,6 +20,15 @@ import type { ChaveReferenciada } from "@/lib/chaves-fluxo"
  * nesta sessão (cobre interpolação dinâmica que a detecção não pegou). O
  * valor "atual" de cada linha já vem seedado pelo componente pai
  * (chat-de-teste.tsx) — aqui só exibe/edita.
+ *
+ * Cada chave detectada automaticamente ganha um badge "obrigatória" (usada
+ * em `condicao.campo`/`api.camposCorpo` — sem ela o fluxo trava) ou
+ * "opcional" (só aparece em interpolação de texto) — ver
+ * `ChaveReferenciada.obrigatoria` em `chaves-fluxo.ts` (card #20260192 /
+ * issue #147). Chaves sem detecção automática (só no padrão salvo ou
+ * adicionadas manualmente nesta sessão) não têm essa info — ficam sem
+ * badge, propositalmente: não sabemos se são obrigatórias ou não, e marcar
+ * "opcional" por padrão seria uma afirmação falsa nesse caso.
  */
 export function PainelDadosTeste({
   chavesDetectadas,
@@ -50,6 +60,13 @@ export function PainelDadosTeste({
 
   const chavesDetectadasSet = React.useMemo(
     () => new Set(chavesDetectadas.map((c) => c.chave)),
+    [chavesDetectadas]
+  )
+
+  // chave -> obrigatória, só pras chaves detectadas automaticamente (as
+  // demais ficam sem badge — ver comentário no topo do arquivo).
+  const obrigatoriedadePorChave = React.useMemo(
+    () => new Map(chavesDetectadas.map((c) => [c.chave, c.obrigatoria])),
     [chavesDetectadas]
   )
 
@@ -102,15 +119,34 @@ export function PainelDadosTeste({
             const removivel =
               !chavesDetectadasSet.has(chave) &&
               !(defaultPersistido && chave in defaultPersistido)
+            const obrigatoria = obrigatoriedadePorChave.get(chave)
             return (
               <div key={chave} className="flex items-end gap-1">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <Label
-                    className="truncate font-mono text-xs"
-                    title={chave}
-                  >
-                    {chave}
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label
+                      className="truncate font-mono text-xs"
+                      title={chave}
+                    >
+                      {chave}
+                    </Label>
+                    {obrigatoria === true && (
+                      <Badge
+                        variant="destructive"
+                        title="Chave obrigatória: usada em condição de roteamento ou no corpo de uma chamada de API — sem ela o fluxo trava"
+                      >
+                        obrigatório
+                      </Badge>
+                    )}
+                    {obrigatoria === false && (
+                      <Badge
+                        variant="secondary"
+                        title="Chave opcional: só usada em interpolação de texto"
+                      >
+                        opcional
+                      </Badge>
+                    )}
+                  </div>
                   <Input
                     aria-label={`Valor de teste para ${chave}`}
                     value={valores[chave] ?? ""}
