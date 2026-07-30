@@ -54,6 +54,15 @@ export interface ChaveReferenciada {
   chave: string
   /** Todos os dot-paths completos observados para esta chave. */
   caminhos: string[]
+  /**
+   * `true` se a chave aparece em `condicao.data.campo` (decide roteamento)
+   * OU em `api.data.camposCorpo` (vai no corpo de chamada de API externa)
+   * em QUALQUER ocorrência no fluxo/subfluxo expandido — mais forte vence
+   * mesmo se a MESMA chave também aparecer só em interpolação de texto em
+   * outro nó (card #20260192 / issue #147). `false` = só apareceu em
+   * interpolação de texto (`{{chave}}`), não bloqueia execução do fluxo.
+   */
+  obrigatoria: boolean
 }
 
 /** Campo top-level do GraphState do backend — nunca é chave de `dadosColetados`. */
@@ -107,6 +116,9 @@ export async function extrairChavesReferenciadas(
 ): Promise<ChaveReferenciada[]> {
   const profundidadeMax = opts.profundidadeMax ?? 10
   const referenciadas = new Map<string, Set<string>>()
+  /** Chaves vistas em `condicao.data.campo` ou `api.data.camposCorpo` (referência
+   * direta) em qualquer ocorrência — OR entre todas as ocorrências da chave. */
+  const obrigatorias = new Set<string>()
   const todosOsNos: NoParaExtracao[] = []
   const fluxosVisitados = new Set<string>()
 
@@ -135,11 +147,13 @@ export async function extrairChavesReferenciadas(
             }
           }
           // camposCorpo referencia dadosColetados DIRETO (sem {{}}) — são
-          // os dot-paths enviados no corpo da requisição.
+          // os dot-paths enviados no corpo da requisição. Referência direta
+          // = obrigatória (issue #147).
           if (Array.isArray(dados.camposCorpo)) {
             for (const campo of dados.camposCorpo) {
               if (typeof campo === "string") {
                 registrarCaminho(referenciadas, campo)
+                obrigatorias.add(campo.trim().split(".")[0])
               }
             }
           }
@@ -149,9 +163,11 @@ export async function extrairChavesReferenciadas(
           registrarInterpolacoes(referenciadas, dados.valor)
           break
         case "condicao":
-          // condicao.campo referencia dadosColetados DIRETO (sem {{}}).
+          // condicao.campo referencia dadosColetados DIRETO (sem {{}}) e
+          // decide roteamento — referência direta = obrigatória (issue #147).
           if (typeof dados.campo === "string") {
             registrarCaminho(referenciadas, dados.campo)
+            obrigatorias.add(dados.campo.trim().split(".")[0])
           }
           break
         case "subfluxo": {
@@ -192,7 +208,11 @@ export async function extrairChavesReferenciadas(
   for (const [chave, caminhos] of referenciadas) {
     if (chave === CHAVE_SEMPRE_IGNORADA) continue
     if (produzidas.has(chave)) continue
-    resultado.push({ chave, caminhos: [...caminhos] })
+    resultado.push({
+      chave,
+      caminhos: [...caminhos],
+      obrigatoria: obrigatorias.has(chave),
+    })
   }
   return resultado
 }
