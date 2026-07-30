@@ -2,6 +2,7 @@ import { X } from "lucide-react"
 
 import { ChatDeTeste } from "@/components/chat-teste/chat-de-teste"
 import { Button } from "@/components/ui/button"
+import type { NoParaExtracao } from "@/lib/chaves-fluxo"
 
 /**
  * Painel do chat de teste no builder (docs/guia-frontend.md §2.3, wireframe
@@ -15,6 +16,8 @@ export function PainelChatTeste({
   nomeFluxo,
   aoFechar,
   aoMudarTrilha,
+  nodes,
+  dadosTesteIniciais,
 }: {
   flowId: string
   nomeFluxo: string
@@ -22,6 +25,11 @@ export function PainelChatTeste({
   // Trilha de execução (issue #125) — repassada ao builder pra destacar a
   // trajetória no canvas enquanto o painel está aberto e há sessão ativa.
   aoMudarTrilha?: (trilha: string[]) => void
+  // Dados de Teste (card #20260190 / issue #144) — o builder já tem o
+  // Fluxo completo carregado (nodes + dadosTeste); repassa aqui pra evitar
+  // round-trip extra dentro do ChatDeTeste.
+  nodes?: NoParaExtracao[]
+  dadosTesteIniciais?: Record<string, string> | null
 }) {
   return (
     <aside className="flex w-96 shrink-0 flex-col overflow-hidden rounded-md border">
@@ -46,6 +54,8 @@ export function PainelChatTeste({
           flowId={flowId}
           nomeFluxo={nomeFluxo}
           aoMudarTrilha={aoMudarTrilha}
+          nodes={nodes}
+          dadosTesteIniciais={dadosTesteIniciais}
         />
       </div>
     </aside>
