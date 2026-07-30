@@ -3,6 +3,7 @@ import { RotateCcw, Send, Smartphone } from "lucide-react"
 
 import { BolhaMensagem } from "@/components/chat-teste/bolha-mensagem"
 import { MockupCelular } from "@/components/chat-teste/mockup-celular"
+import { PainelDadosTeste } from "@/components/chat-teste/painel-dados-teste"
 import { PainelDebug } from "@/components/chat-teste/painel-debug"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,13 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { ErroApi } from "@/lib/api"
+import {
+  extrairChavesReferenciadas,
+  valorDefaultParaChave,
+  type ChaveReferenciada,
+  type NoParaExtracao,
+} from "@/lib/chaves-fluxo"
+import { obterFluxo, salvarDadosTeste } from "@/lib/fluxos"
 import {
   enviarMensagemDeTeste,
   gerarSessionIdDeTeste,
@@ -29,6 +37,8 @@ export function ChatDeTeste({
   flowId,
   nomeFluxo = "Maria",
   aoMudarTrilha,
+  nodes,
+  dadosTesteIniciais,
 }: {
   flowId: string
   nomeFluxo?: string
@@ -37,6 +47,14 @@ export function ChatDeTeste({
   // reiniciar (trilha volta a []) — quem consome decide se/como limpar o
   // destaque quando o chat fecha (ver DrawerChatTeste).
   aoMudarTrilha?: (trilha: string[]) => void
+  // Dados de Teste (card #20260190 / issue #144): nós do fluxo (pra
+  // detectar chaves referenciadas) e o default persistido (`Flow.dadosTeste`).
+  // Quem já tem o Fluxo completo carregado (ex: pagina-builder.tsx) repassa
+  // aqui sem round-trip extra; se omitido, este componente busca sozinho via
+  // obterFluxo(flowId) (caso do drawer aberto a partir da lista de fluxos,
+  // que só tem o FluxoResumo).
+  nodes?: NoParaExtracao[]
+  dadosTesteIniciais?: Record<string, string> | null
 }) {
   const [sessionId, setSessionId] = React.useState(() =>
     gerarSessionIdDeTeste()
@@ -50,11 +68,93 @@ export function ChatDeTeste({
   const [carregando, setCarregando] = React.useState(false)
   const [erro, setErro] = React.useState<string | null>(null)
   const [modoWhatsApp, setModoWhatsApp] = React.useState(false)
-  // Guias (issue #135): separa conversa de dadosColetados, mas o estado
-  // continua todo aqui no pai — trocar de aba só troca o que é exibido,
-  // não desmonta mensagens/dadosColetados/sessionId.
-  const [aba, setAba] = React.useState<"conversa" | "dados">("conversa")
+  // Guias (issue #135, #144): separa conversa/dadosColetados/dados de teste,
+  // mas o estado continua todo aqui no pai — trocar de aba só troca o que é
+  // exibido, não desmonta mensagens/dadosColetados/sessionId/valoresTeste.
+  const [aba, setAba] = React.useState<"conversa" | "dados" | "teste">(
+    "conversa"
+  )
   const fimDaListaRef = React.useRef<HTMLDivElement>(null)
+
+  // Dados de Teste (card #20260190 / issue #144).
+  const [chavesDetectadas, setChavesDetectadas] = React.useState<
+    ChaveReferenciada[]
+  >([])
+  const [dadosPadrao, setDadosPadrao] = React.useState<Record<
+    string,
+    string
+  > | null>(null)
+  const [valoresTeste, setValoresTeste] = React.useState<
+    Record<string, string>
+  >({})
+  // Controla o envio da 1ª mensagem: sem esperar, ela sairia com
+  // valoresTeste ainda vazio (chaves/`dadosTeste` resolvem async, inclusive
+  // via fetch quando `nodes`/`dadosTesteIniciais` não vêm de props) e o
+  // subfluxo travaria exatamente no que se quer testar.
+  const [carregandoDadosTeste, setCarregandoDadosTeste] =
+    React.useState(true)
+  const [salvandoDadosTeste, setSalvandoDadosTeste] = React.useState(false)
+  const [erroSalvarDadosTeste, setErroSalvarDadosTeste] = React.useState<
+    string | null
+  >(null)
+
+  // Assinatura por tipo+data (ignora `position`) — recalcula chaves quando o
+  // CONTEÚDO dos nós muda, não a cada drag no canvas.
+  const assinaturaNos = React.useMemo(
+    () => nodes?.map((no) => `${no.type}:${JSON.stringify(no.data ?? {})}`).join("|") ?? null,
+    [nodes]
+  )
+
+  React.useEffect(() => {
+    let cancelado = false
+
+    async function carregar() {
+      let nosParaExtracao = nodes
+      let padrao = dadosTesteIniciais ?? null
+      if (!nosParaExtracao) {
+        try {
+          const fluxo = await obterFluxo(flowId)
+          nosParaExtracao = fluxo.nodes
+          padrao = fluxo.dadosTeste ?? null
+        } catch {
+          nosParaExtracao = []
+        }
+      }
+
+      let chaves: ChaveReferenciada[] = []
+      try {
+        chaves = await extrairChavesReferenciadas(nosParaExtracao ?? [])
+      } catch {
+        chaves = []
+      }
+      if (cancelado) return
+
+      setChavesDetectadas(chaves)
+      setDadosPadrao(padrao)
+      // Preenche (sem sobrescrever) valores já editados nesta sessão —
+      // reiniciar() e edições no canvas não devem apagar o que o usuário
+      // já digitou aqui.
+      setValoresTeste((atuais) => {
+        const novo = { ...atuais }
+        for (const c of chaves) {
+          if (!(c.chave in novo)) {
+            novo[c.chave] = padrao?.[c.chave] ?? valorDefaultParaChave(c.caminhos)
+          }
+        }
+        for (const [chave, valor] of Object.entries(padrao ?? {})) {
+          if (!(chave in novo)) novo[chave] = valor
+        }
+        return novo
+      })
+      setCarregandoDadosTeste(false)
+    }
+
+    carregar()
+    return () => {
+      cancelado = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `nodes` entra via assinaturaNos (ignora position); `flowId` é estável por instância (key={flowId} no pai)
+  }, [flowId, assinaturaNos, dadosTesteIniciais])
 
   const enviar = React.useCallback(
     (idDaSessao: string, mensagem?: string) => {
@@ -64,6 +164,7 @@ export function ChatDeTeste({
         sessionId: idDaSessao,
         flowId,
         message: mensagem,
+        dadosIniciais: valoresTeste,
       })
         .then((resposta) => {
           setMensagens((atuais) => [...atuais, ...resposta.messages])
@@ -80,10 +181,13 @@ export function ChatDeTeste({
         })
         .finally(() => setCarregando(false))
     },
-    [flowId, aoMudarTrilha]
+    [flowId, aoMudarTrilha, valoresTeste]
   )
 
   React.useEffect(() => {
+    // Espera os dados de teste resolverem (ver efeito acima) antes da 1ª
+    // chamada — senão ela sai com dadosIniciais vazio.
+    if (carregandoDadosTeste) return
     // microtask: setCarregando/setErro de enviar() não podem rodar
     // sincronamente dentro do efeito (react-hooks/set-state-in-effect).
     // cancelado: StrictMode roda o efeito 2x em dev (monta/desmonta/monta);
@@ -96,8 +200,8 @@ export function ChatDeTeste({
     return () => {
       cancelado = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na sessão inicial; reiniciar troca sessionId e re-executa
-  }, [sessionId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na sessão inicial (+ liberação do carregandoDadosTeste); reiniciar troca sessionId e re-executa
+  }, [sessionId, carregandoDadosTeste])
 
   React.useEffect(() => {
     fimDaListaRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -113,6 +217,49 @@ export function ChatDeTeste({
     // reiniciar zera a sessão no back (#sair / sessionId novo) → trilha
     // vazia até a 1ª resposta da sessão nova chegar.
     aoMudarTrilha?.([])
+    // valoresTeste NÃO reseta aqui de propósito — reiniciar testa de novo
+    // com os MESMOS dados de teste; trocar de fluxo (remount, key={flowId}
+    // no pai) ou "restaurar padrão" é que zera/reseta valores.
+  }
+
+  function atualizarValorTeste(chave: string, valor: string) {
+    setValoresTeste((atuais) => ({ ...atuais, [chave]: valor }))
+  }
+
+  function adicionarChaveManual(chave: string) {
+    setValoresTeste((atuais) =>
+      chave in atuais ? atuais : { ...atuais, [chave]: "" }
+    )
+  }
+
+  function removerChaveManual(chave: string) {
+    setValoresTeste((atuais) => {
+      const resto = { ...atuais }
+      delete resto[chave]
+      return resto
+    })
+  }
+
+  function restaurarPadraoDaChave(chave: string) {
+    const caminhos =
+      chavesDetectadas.find((c) => c.chave === chave)?.caminhos ?? []
+    const valor = dadosPadrao?.[chave] ?? valorDefaultParaChave(caminhos)
+    setValoresTeste((atuais) => ({ ...atuais, [chave]: valor }))
+  }
+
+  function salvarValoresComoPadrao() {
+    setSalvandoDadosTeste(true)
+    setErroSalvarDadosTeste(null)
+    salvarDadosTeste(flowId, valoresTeste)
+      .then((fluxoAtualizado) => {
+        setDadosPadrao(fluxoAtualizado.dadosTeste ?? null)
+      })
+      .catch(() => {
+        setErroSalvarDadosTeste(
+          "Não foi possível salvar os dados de teste. Tente novamente."
+        )
+      })
+      .finally(() => setSalvandoDadosTeste(false))
   }
 
   /**
@@ -194,12 +341,15 @@ export function ChatDeTeste({
 
       <Tabs
         value={aba}
-        onValueChange={(valor) => setAba(valor as "conversa" | "dados")}
+        onValueChange={(valor) =>
+          setAba(valor as "conversa" | "dados" | "teste")
+        }
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <TabsList className="mx-4 mt-3 self-start">
           <TabsTrigger value="conversa">Conversa</TabsTrigger>
           <TabsTrigger value="dados">Dados coletados</TabsTrigger>
+          <TabsTrigger value="teste">Dados de Teste</TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -244,6 +394,25 @@ export function ChatDeTeste({
           className="min-h-0 flex-1 overflow-y-auto p-4"
         >
           <PainelDebug dadosColetados={dadosColetados} encerrado={encerrado} />
+        </TabsContent>
+
+        <TabsContent
+          value="teste"
+          className="min-h-0 flex-1 overflow-y-auto p-4"
+        >
+          <PainelDadosTeste
+            chavesDetectadas={chavesDetectadas}
+            defaultPersistido={dadosPadrao}
+            valores={valoresTeste}
+            aoAtualizarValor={atualizarValorTeste}
+            aoAdicionarChave={adicionarChaveManual}
+            aoRemoverChave={removerChaveManual}
+            aoRestaurarPadrao={restaurarPadraoDaChave}
+            aoSalvarComoPadrao={salvarValoresComoPadrao}
+            salvando={salvandoDadosTeste}
+            erroSalvar={erroSalvarDadosTeste}
+            carregando={carregandoDadosTeste}
+          />
         </TabsContent>
       </Tabs>
     </div>

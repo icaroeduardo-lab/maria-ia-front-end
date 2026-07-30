@@ -130,3 +130,13 @@ export function marcarTemplate(id: string) {
 export function desmarcarTemplate(id: string) {
   return api.post<Fluxo>(`/admin/flows/${id}/desmarcar-template`)
 }
+
+/**
+ * Seed de `dadosColetados` sugerido pra testar este fluxo/subfluxo isolado
+ * (card #20260190 / issue #144) — metadado, mesmo padrão de
+ * marcarTemplate/desmarcarTemplate: sem lock otimista por `updatedAt` e
+ * sem criar `FlowVersion` (não é conteúdo do fluxo).
+ */
+export function salvarDadosTeste(id: string, dadosTeste: Record<string, string>) {
+  return api.put<Fluxo>(`/admin/flows/${id}/dados-teste`, { dadosTeste })
+}
