@@ -1295,6 +1295,8 @@ function ConteudoBuilder() {
               setTrilhaChatTeste([])
             }}
             aoMudarTrilha={setTrilhaChatTeste}
+            nodes={nodes}
+            dadosTesteIniciais={fluxo.dadosTeste}
           />
         ) : noSelecionado ? (
           <PainelPropriedades

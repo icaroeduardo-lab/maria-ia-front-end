@@ -62,6 +62,12 @@ export function enviarMensagemDeTeste(params: {
   sessionId: string
   flowId?: string
   message?: string
+  // Seed de dadosColetados (issue #134/card #20260190) — só tem efeito na
+  // 1ª chamada da sessão (thread nova); testar subfluxo isolado sem
+  // depender de nós anteriores do fluxo pai (idPessoa/idAssunto/relato
+  // etc.). O backend ignora este campo quando a sessão já está em
+  // andamento (isResuming) — seguro enviar sempre.
+  dadosIniciais?: Record<string, string>
 }) {
   return api.post<RespostaTestChat>("/admin/test-chat", params)
 }
