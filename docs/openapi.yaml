@@ -108,6 +108,11 @@ components:
         edges: { type: array, items: { $ref: '#/components/schemas/FlowEdge' } }
         active: { type: boolean }
         isTemplate: { type: boolean, description: "catálogo de templates — card #20260127" }
+        dadosTeste:
+          type: object
+          additionalProperties: { type: string }
+          nullable: true
+          description: "seed sugerido de dadosColetados p/ testar subfluxo isolado (issue #134) — metadado, não versiona"
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     FlowVersionResumo:
@@ -163,32 +168,384 @@ components:
         tem_casos: { type: boolean }
         casos:
           type: array
+          description: "campos preservam os nomes originais do Verde (issue maria-ia#110)"
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              status: { type: string }
+              tipoCaso: { type: string }
+              assunto:
+                type: object
+                nullable: true
+                properties:
+                  id: { type: integer }
+                  nome: { type: string }
+              numeroProcesso: { type: string, nullable: true }
+              dataAtualizacao: { type: string, nullable: true }
+              orgaosAssociados:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    nome: { type: string }
+                    responsavel: { type: boolean }
+              andamentos:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    titulo: { type: string }
+                    descricao: { type: string }
+                    data: { type: string }
+        lista: { type: string }
+    PessoaPresaConsultaResp:
+      type: object
+      required: [encontrado, situacao, nome, tipoPreso, regime, idPessoa, idSeap]
+      properties:
+        encontrado: { type: boolean }
+        situacao: { type: string, description: "ATIVO | LIBERTADO | FORAGIDO | EGRESSO | EVADIDO | ... (\"nao_encontrado\" se não achou)" }
+        nome: { type: string }
+        tipoPreso: { type: string, description: "CONDENADO | SENTENCIADO | PROVISORIO | ..." }
+        regime: { type: string }
+        idPessoa: { type: string, description: "usado em GET /api/pessoa-presa/casos?idPessoaPresa=" }
+        idSeap: { type: string, description: "usado em GET /api/pessoa-presa/orgao-responsavel(-liberto)?idSeap=" }
+    PessoaPresaProcessoResp:
+      type: object
+      required: [encontrado, numero, origem, idProcesso]
+      properties:
+        encontrado: { type: boolean }
+        numero: { type: string }
+        origem: { type: string, description: "ex: SEEU" }
+        idProcesso: { type: string }
+    PessoaPresaCasosResp:
+      type: object
+      required: [tem_casos, status, casos, lista]
+      properties:
+        tem_casos: { type: boolean }
+        status: { type: string, description: "\"ABERTO\" (literal, comparado pelo nó condicao) ou \"\" se não há caso aberto" }
+        casos:
+          type: array
           items:
             type: object
             properties:
               identificador: { type: string }
               tipo: { type: string }
         lista: { type: string }
+    PessoaPresaOrgaoResp:
+      type: object
+      required: [status, orgao]
+      properties:
+        status: { type: string, description: "\"encontrado\" (literal, comparado pelo nó condicao) ou \"nao_encontrado\"" }
+        orgao:
+          type: object
+          nullable: true
+          properties:
+            nome: { type: string }
+            telefone: { type: string }
+            endereco: { type: string }
+    PlantaoOrgaoResp:
+      type: object
+      required: [status, orgao]
+      properties:
+        status: { type: string, description: "\"encontrado\" (literal, comparado pelo nó condicao) ou \"nao_encontrado\"" }
+        orgao:
+          type: object
+          nullable: true
+          properties:
+            nome: { type: string }
+            telefone: { type: string, nullable: true }
+            endereco: { type: string, nullable: true }
+            municipio: { type: string }
+            tipo: { type: string, description: "REGIONAL | CAPITAL — nunca MUNICIPAL (a rota já filtra)" }
+    RecessoResp:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, description: "\"SEM_RECESSO_VIGENTE\" ou \"RECESSO_VIGENTE\" (literais, comparados pelo nó condicao)" }
+        mensagem: { type: string, nullable: true, description: "mensagem pro assistido quando em recesso" }
     CpfReq:
       type: object
       required: [cpf]
       properties:
         cpf: { type: string }
+    ElegibilidadeReq:
+      type: object
+      properties:
+        telefone_whatsapp: { type: string, description: "wa_id cru (E.164 sem +), injetado automaticamente no invoke inicial — ver chat.ts" }
+        cpf: { type: string }
+    ElegibilidadeResp:
+      type: object
+      required: [decisao]
+      properties:
+        decisao: { type: string, description: "\"ok\" (segue normal) ou \"perguntar\" (fluxo pergunta residência/processo direto)" }
     CasoDetalheReq:
       type: object
       properties:
-        caso_sel: { type: string, description: "identificador completo ou índice (1,2,...)" }
-        casos: { type: string, description: "JSON da consulta anterior (para mapear índice)" }
+        caso_sel: { type: string, description: "id completo ou índice (1,2,...)" }
+        casos: { type: string, description: "JSON da consulta anterior (para mapear índice, resolve sem re-fetch)" }
     CasoDetalheResp:
       type: object
       required: [encontrado]
       properties:
         encontrado: { type: boolean }
-        identificador: { type: string }
-        tipo: { type: string }
+        id: { type: integer }
         status: { type: string }
-        criadoEm: { type: string, format: date-time }
+        tipoCaso: { type: string }
+        assunto:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            nome: { type: string }
+        orgaosAssociados:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              nome: { type: string }
+              responsavel: { type: boolean }
+        andamentos:
+          type: array
+          description: "só o mais recente (índice 0), não o histórico completo"
+          items:
+            type: object
+            properties:
+              titulo: { type: string }
+              descricao: { type: string }
+              data: { type: string }
+        numeroProcesso: { type: string, nullable: true }
+        processo:
+          type: object
+          nullable: true
+          description: "junta GET /api/processo/{numero} quando há numeroProcesso — mesmo formato dessa rota, sem remapear"
+        temProcesso: { type: string, description: "\"true\"/\"false\" — flag auxiliar pro fluxo rotear (condicao só faz match exato)" }
+    AgendamentosConsultaResp:
+      type: object
+      properties:
+        tem_agendamentos: { type: boolean }
+        agendamentos:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              tipo: { type: string }
+              data: { type: string, format: date-time }
+              local: { type: string, nullable: true }
+        lista: { type: string, description: "texto formatado, 1 linha por agendamento" }
+    AgendamentoDetalheReq:
+      type: object
+      properties:
+        agendamento_sel: { type: string, description: "id completo ou índice (1,2,...)" }
+        agendamentos: { type: string, description: "JSON da consulta anterior (para mapear índice)" }
+    AgendamentoDetalheResp:
+      type: object
+      required: [encontrado]
+      properties:
+        encontrado: { type: boolean }
+        id: { type: string }
+        tipo: { type: string }
+        data: { type: string, format: date-time }
+        local: { type: string, nullable: true }
+        status: { type: string }
         assistido: { type: string }
+    AgendamentoDetalheRicoReq:
+      type: object
+      required: [idEvento]
+      properties:
+        idEvento: { type: string }
+    AgendamentoDetalheRicoResp:
+      type: object
+      required: [encontrado]
+      description: "campos preservam os nomes originais do Verde (issue maria-ia#111, gateway#21)"
+      properties:
+        encontrado: { type: boolean }
+        idEvento: { type: integer }
+        idAssistido: { type: integer }
+        idOrgao: { type: integer }
+        idCaso: { type: integer, nullable: true }
+        nomeAssistido: { type: string }
+        nomeOrgao: { type: string }
+        endereco: { type: string }
+        data: { type: string }
+        horario: { type: string }
+        documentosNecessarios: { type: string, nullable: true }
+        nomeAssunto: { type: string, nullable: true }
+    AgendamentoVagasReq:
+      type: object
+      required: [idEvento]
+      properties:
+        idEvento: { type: string }
+    AgendamentoVagasResp:
+      type: object
+      properties:
+        tem_vagas: { type: boolean }
+        vagas:
+          type: array
+          items:
+            type: object
+            properties:
+              idIntervalo: { type: integer }
+              data: { type: string }
+              hora: { type: string }
+        lista: { type: string, description: "texto formatado, 1 linha por vaga" }
+    AgendamentoVagaDetalheReq:
+      type: object
+      properties:
+        vaga_sel: { type: string, description: "índice (1,2,...) da lista de vagas anterior" }
+        vagas: { type: string, description: "JSON da consulta de vagas anterior (resolve sem re-fetch)" }
+    AgendamentoVagaDetalheResp:
+      type: object
+      required: [encontrada]
+      properties:
+        encontrada: { type: boolean }
+        idIntervalo: { type: integer }
+        data: { type: string }
+        hora: { type: string }
+    AgendamentoReagendarReq:
+      type: object
+      required: [idAgendamento, configuracaoIntervaloAgenda, dataNova]
+      properties:
+        idAgendamento: { type: string }
+        configuracaoIntervaloAgenda: { type: string, description: "idIntervalo da vaga escolhida" }
+        dataNova: { type: string }
+        horaNova: { type: string, description: "combinada com dataNova antes de enviar ao Verde (\"DD/MM/YYYY HH:mm\")" }
+    AgendamentoReagendarResp:
+      type: object
+      required: [sucesso]
+      properties:
+        sucesso: { type: boolean }
+    AgendamentoDesmarcarReq:
+      type: object
+      required: [idAgendamento, idPessoa]
+      properties:
+        idAgendamento: { type: string }
+        idPessoa: { type: string }
+    AgendamentoDesmarcarResp:
+      type: object
+      required: [sucesso]
+      properties:
+        sucesso: { type: boolean }
+        emailEnviado: { type: boolean, description: "204 do Verde (true) vs 200 sucesso parcial (false, e-mail falhou)" }
+    VerificarDuplicadosReq:
+      type: object
+      required: [idPessoa, idAssunto]
+      properties:
+        idPessoa: { type: integer }
+        idAssunto: { type: integer }
+    VerificarDuplicadosResp:
+      type: object
+      required: [tem_duplicado]
+      properties:
+        tem_duplicado: { type: boolean }
+        idAgendamentoDuplicado: { type: integer, nullable: true }
+        dataDuplicado: { type: string, nullable: true }
+    AgendarReq:
+      type: object
+      required: [idPessoa, idOrgao, idAssunto, idIntervalo, dataVaga]
+      properties:
+        idPessoa: { type: integer }
+        idOrgao: { type: integer }
+        idAssunto: { type: integer }
+        idIntervalo: { type: integer, description: "vindo de orgao/primeiro-atendimento (primeira_vaga_intervalo) ou agendamentos/vagas" }
+        dataVaga: { type: string, description: "\"DD/MM/YYYY HH:mm\"" }
+        resumoAtendimento: { type: string }
+        textoComplemento: { type: string }
+    AgendarResp:
+      type: object
+      required: [sucesso]
+      properties:
+        sucesso: { type: boolean }
+        idAgendamento: { type: integer, nullable: true }
+    OrgaoPrimeiroAtendimentoReq:
+      type: object
+      required: [idPessoa, idAssunto]
+      properties:
+        idPessoa: { type: integer }
+        idAssunto: { type: integer }
+        complemento: { type: string }
+    OrgaoPrimeiroAtendimentoResp:
+      type: object
+      required: [tem_orgao]
+      properties:
+        tem_orgao: { type: boolean }
+        orgao_id: { type: integer }
+        orgao_nome: { type: string }
+        tipo_atendimento: { type: string, description: "\"agendamento\" | \"encaminhamento\" | \"outros\" — normalizado do tipoAtendimento bruto do Verde" }
+        idLocalAtendimento: { type: integer, nullable: true }
+        primeira_vaga_intervalo: { type: integer, nullable: true }
+        primeira_vaga_data: { type: string, nullable: true }
+        primeira_vaga_hora: { type: string, nullable: true }
+    BloqueioVerificarReq:
+      type: object
+      required: [idPessoa, idAssunto, idOrgao]
+      properties:
+        idPessoa: { type: integer }
+        idAssunto: { type: integer }
+        idOrgao: { type: integer }
+    BloqueioVerificarResp:
+      type: object
+      required: [tem_bloqueio]
+      properties:
+        tem_bloqueio: { type: boolean }
+        data_bloqueio: { type: string, nullable: true }
+        data_desbloqueio: { type: string, nullable: true }
+    EncaminharReq:
+      type: object
+      required: [idPessoa, idOrgao, idAssunto, preferenciaAtendimento]
+      properties:
+        idPessoa: { type: integer }
+        idOrgao: { type: integer }
+        idAssunto: { type: integer }
+        urgencia: { type: boolean }
+        preferenciaAtendimento: { type: string, description: "\"Remoto\" | \"Presencial\"" }
+        idLocalAtendimento: { type: integer, description: "obrigatório quando Presencial" }
+        textoComplemento: { type: string }
+    EncaminharResp:
+      type: object
+      required: [sucesso]
+      properties:
+        sucesso: { type: boolean }
+        idEncaminhamento: { type: integer, nullable: true }
+    ConsultarItemArvoreReq:
+      type: object
+      properties:
+        idCategoria: { type: integer, description: "só na 1ª chamada" }
+        idItemCategoria: { type: integer, description: "resposta escolhida no nível anterior" }
+    ConsultarItemArvoreResp:
+      type: object
+      required: [assunto_encontrado]
+      properties:
+        assunto_encontrado: { type: boolean }
+        idAssunto: { type: integer, nullable: true }
+        pergunta: { type: string }
+        respostas: { type: array, items: { type: object, properties: { id: { type: integer }, resposta: { type: string } } } }
+        lista: { type: string, description: "respostas numeradas, pronta pra exibir" }
+    ResolverEscolhaReq:
+      type: object
+      required: [escolha_sel, resultado_arvore]
+      properties:
+        escolha_sel: { type: string, description: "índice digitado (1, 2, ...) ou o texto da resposta" }
+        resultado_arvore: { type: string, description: "JSON cru da resposta anterior de consultar-item-arvore (mesma chave de dadosColetados)" }
+    ResolverEscolhaResp:
+      type: object
+      required: [encontrada]
+      properties:
+        encontrada: { type: boolean }
+        idItemCategoria: { type: integer, nullable: true }
+    AssuntoMetadadosResp:
+      type: object
+      required: [encontrado, urgente]
+      properties:
+        encontrado: { type: boolean }
+        urgente: { type: boolean }
+        documentos_necessarios:
+          type: string
+          nullable: true
+          description: "txDocumentosNecessarios do Verde — texto pronto (markdown-like) pra exibir ao assistido. \"plantao\" do Verde é ignorado de propósito (fora de escopo, issue #132)."
     ConfigIA:
       type: object
       description: Configuração global da IA (singleton id=default)
@@ -233,6 +590,7 @@ components:
         categoria: { type: string, nullable: true }
         ultimaEtapa: { type: string, nullable: true }
         protocoloDperj: { type: string, nullable: true }
+        tags: { type: array, items: { type: string }, description: "rótulos livres marcados pelo nó \"tag\" do fluxo (card #20260139)" }
         startedAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         completedAt: { type: string, format: date-time, nullable: true }
@@ -484,6 +842,9 @@ paths:
         "200":
           description: Criado
           content: { application/json: { schema: { $ref: '#/components/schemas/Flow' } } }
+        "400":
+          description: name obrigatório
+          content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } }
   /admin/flows/{id}:
     parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
     get:
@@ -527,7 +888,9 @@ paths:
     delete:
       tags: [Admin — Flows]
       summary: Remove fluxo (admin)
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /admin/flows/{id}/versoes:
     get:
       tags: [Admin — Flows]
@@ -571,19 +934,25 @@ paths:
       tags: [Admin — Flows]
       summary: Valida fluxo (estrutura + compilação)
       parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
-      responses: { "200": { description: "{ ok, erros[] }" } }
+      responses:
+        "200": { description: "{ ok, erros[] }" }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /admin/flows/{id}/activate:
     post:
       tags: [Admin — Flows]
       summary: Ativa fluxo (desativa os demais) (admin)
       parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /admin/flows/{id}/deactivate:
     post:
       tags: [Admin — Flows]
       summary: Desativa fluxo (admin)
       parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /admin/flows/{id}/marcar-template:
     post:
       tags: [Admin — Flows]
@@ -600,6 +969,28 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Flow' } } } }
         "404": { description: Não encontrado }
+  /admin/flows/{id}/dados-teste:
+    put:
+      tags: [Admin — Flows]
+      summary: Define o seed de dadosColetados usado pelo chat de teste (issue #134) — metadado, não versiona
+      description: >
+        Sem lock otimista por updatedAt e sem criar FlowVersion (mesmo
+        raciocínio de marcar-template/desmarcar-template) — é um rascunho de
+        teste, não conteúdo do fluxo. Usado por /admin/test-chat via
+        dadosIniciais na 1ª chamada da sessão.
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dadosTeste:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Flow' } } } }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
 
   # ── Admin: Conversations ───────────────────────────────────
   /admin/conversations:
@@ -640,6 +1031,9 @@ paths:
       summary: Revela PII do assistido (admin, auditado)
       parameters: [{ in: path, name: sessionId, required: true, schema: { type: string } }]
       responses:
+        "404":
+          description: Conversa não encontrada
+          content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } }
         "200":
           description: Dados completos do assistido (acesso registrado em auditoria)
           content:
@@ -719,6 +1113,12 @@ paths:
         "200":
           description: Assistido criado
           content: { application/json: { schema: { $ref: '#/components/schemas/Assistido' } } }
+        "400":
+          description: cpf inválido (11 dígitos) ou nome obrigatório
+          content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } }
+        "409":
+          description: CPF já cadastrado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } }
   /admin/assistidos/{id}:
     parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
     get:
@@ -728,7 +1128,7 @@ paths:
         "200":
           description: Dados completos (acesso auditado)
           content: { application/json: { schema: { $ref: '#/components/schemas/Assistido' } } }
-        "404": { description: Não encontrado }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
     put:
       tags: [Admin — Assistidos]
       summary: Atualiza assistido (admin)
@@ -736,11 +1136,13 @@ paths:
         "200":
           description: Assistido atualizado
           content: { application/json: { schema: { $ref: '#/components/schemas/Assistido' } } }
-        "404": { description: Não encontrado }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
     delete:
       tags: [Admin — Assistidos]
       summary: Remove assistido (admin)
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "404": { description: Não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
 
   # ── Admin: Config/Users/Analytics/Audit ────────────────────
   /admin/config:
@@ -783,7 +1185,11 @@ paths:
     post:
       tags: [Admin — Config/Users/Analytics/Audit]
       summary: Cria usuário (admin)
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "400":
+          description: email/senha obrigatórios ou role inválida
+          content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } }
   /admin/analytics/summary:
     get:
       tags: [Admin — Config/Users/Analytics/Audit]
@@ -828,8 +1234,28 @@ paths:
         quando flowId é omitido (grafo estático, sem canvas) ou após reiniciar
         a sessão (novo sessionId ou #sair). Alimenta o destaque da trajetória
         no canvas do builder visual.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                flowId: { type: string, description: "flow de teste (opcional — omitido usa o grafo estático)" }
+                sessionId: { type: string }
+                message: { type: string }
+                dadosIniciais:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: >
+                    Seed de dadosColetados (issue #134) — só tem efeito na 1ª
+                    chamada da sessão (thread nova); testar subfluxo isolado
+                    sem depender de nós anteriores do fluxo pai (idPessoa/
+                    idAssunto/relato etc.). Pergunta com a mesma chave já
+                    preenchida é pulada (skip-gate).
       responses:
         "200": { description: "{ messages, done, dadosColetados, tipoPerguntaPendente, trilha, resumo?, metadados? }" }
+        "400": { description: sessionId obrigatório }
         "404": { description: Fluxo não encontrado }
         "422": { description: Flow inválido (falha ao compilar) }
   /admin/test-chat/upload:
@@ -866,33 +1292,185 @@ paths:
       summary: Consulta assistido por CPF
       security: []
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CpfReq' } } } }
-      responses: { "200": { description: "{ encontrado, assistido }" } }
+      responses:
+        "200": { description: "{ encontrado, assistido }" }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /api/assistidos/cadastrar:
     post:
       tags: [Interno (fluxo)]
       summary: Cadastra assistido
       security: []
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "400": { description: cpf inválido ou nome obrigatório, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /api/assistidos/atualizar:
     post:
       tags: [Interno (fluxo)]
       summary: Atualiza assistido
       security: []
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "400": { description: cpf inválido, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+        "404": { description: assistido não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /api/casos/consultar:
     post:
       tags: [Interno (fluxo)]
       summary: Casos em aberto do assistido (tabela Caso)
       security: []
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CpfReq' } } } }
-      responses: { "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CasosConsultaResp' } } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CasosConsultaResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /api/casos/detalhe:
     post:
       tags: [Interno (fluxo)]
       summary: Detalhe de 1 caso (por identificador ou índice da lista anterior)
       security: []
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CasoDetalheReq' } } } }
-      responses: { "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CasoDetalheResp' } } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CasoDetalheResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/elegibilidade/verificar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Gate de área de atuação (DDD RJ → UF cadastro Verde → caso/processo Verde → perguntar direto)"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ElegibilidadeReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ElegibilidadeResp' } } } }
+  /api/agendamentos/consultar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: Agendamentos em aberto do assistido (tabela Agendamento)
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CpfReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentosConsultaResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/agendamentos/detalhe:
+    post:
+      tags: [Interno (fluxo)]
+      summary: Detalhe de 1 agendamento (por id ou índice da lista anterior)
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoDetalheReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoDetalheResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/agendamentos/detalhe-rico:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Detalhe rico de 1 agendamento (endereço, documentos, órgão, idAssistido) — proxy GET api/agendamento/{idEvento} do gateway (issue #111)"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoDetalheRicoReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoDetalheRicoResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/agendamentos/vagas:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Vagas disponíveis pra reagendar — proxy GET api/agendamento/vagas/{idEvento} do gateway"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoVagasReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoVagasResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/agendamentos/vaga-detalhe:
+    post:
+      tags: [Interno (fluxo)]
+      summary: Resolve a vaga escolhida do JSON que /vagas já retornou (índice, zero re-fetch)
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoVagaDetalheReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoVagaDetalheResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/agendamentos/reagendar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Reagenda um agendamento — proxy POST api/agendamento/reagendar do gateway"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoReagendarReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoReagendarResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/agendamentos/desmarcar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Desmarca um agendamento — proxy POST api/agendamento/desmarcar do gateway (ação irreversível, dispara e-mail real)"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoDesmarcarReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendamentoDesmarcarResp' } } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/agendamentos/verificar-duplicados:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Checa agendamento duplicado do mesmo assunto — proxy GET api/agendamento/verificar-duplicados do gateway"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/VerificarDuplicadosReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/VerificarDuplicadosResp' } } } }
+  /api/agendamentos/agendar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Cria agendamento novo (primeiro atendimento, com hora marcada) — proxy POST api/agendamento/agendar do gateway"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/AgendarReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AgendarResp' } } } }
+  /api/orgao/primeiro-atendimento:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Consulta o órgão responsável pelo primeiro atendimento — decide agendamento (hora) vs encaminhamento (sem hora) via tipo_atendimento"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OrgaoPrimeiroAtendimentoReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/OrgaoPrimeiroAtendimentoResp' } } } }
+  /api/bloqueio/verificar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Checa bloqueio ativo (carência) de idPessoa/idAssunto/idOrgao antes de agendar/encaminhar — proxy GET api/bloqueio do gateway"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/BloqueioVerificarReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/BloqueioVerificarResp' } } } }
+  /api/encaminhamento/encaminhar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Cria encaminhamento (primeiro atendimento sem hora marcada) — proxy POST api/encaminhamento/encaminhar do gateway"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/EncaminharReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/EncaminharResp' } } } }
+  /api/assunto/consultar-item-arvore:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Navega 1 nível da árvore de assuntos do Verde (idCategoria na 1ª chamada, idItemCategoria nas seguintes) — proxy GET api/assunto/consultar-item-arvore do gateway"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ConsultarItemArvoreReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ConsultarItemArvoreResp' } } } }
+  /api/assunto/resolver-escolha:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Resolve o número escolhido pro id da resposta da árvore — zero chamada nova ao Verde"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ResolverEscolhaReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ResolverEscolhaResp' } } } }
+  /api/assunto/metadados:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Urgência e documentos necessários do assunto (idAssunto já identificado) — proxy GET api/assunto/{idAssunto} do gateway"
+      security: []
+      parameters:
+        - name: idAssunto
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/AssuntoMetadadosResp' } } } }
   /api/processos/consultar:
     post:
       tags: [Interno (fluxo)]
@@ -907,24 +1485,110 @@ paths:
       security: []
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ResumoReq' } } } }
       responses: { "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ResumoResp' } } } } }
+  /api/pessoa-presa/consultar-rg:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Dados do apenado por RG (\"API fake\" — SEAP/apenado real ainda não existe)"
+      security: []
+      parameters:
+        - { in: query, name: rg, required: true, schema: { type: string }, description: "somente dígitos" }
+      responses:
+        "200":
+          description: Resposta FLAT (sem aninhar em "dados") — bate com {{dados_apenado.*}} do fluxo
+          content: { application/json: { schema: { $ref: '#/components/schemas/PessoaPresaConsultaResp' } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/pessoa-presa/consultar-processo:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Origem + id do processo por número (\"API fake\")"
+      security: []
+      parameters:
+        - { in: query, name: numero, required: true, schema: { type: string }, description: "somente dígitos" }
+      responses:
+        "200":
+          description: "{ encontrado, numero, origem, idProcesso }"
+          content: { application/json: { schema: { $ref: '#/components/schemas/PessoaPresaProcessoResp' } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/pessoa-presa/casos:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Casos abertos da pessoa presa (\"API fake\")"
+      security: []
+      parameters:
+        - { in: query, name: idPessoaPresa, required: true, schema: { type: string }, description: "dados_apenado.idPessoa" }
+      responses:
+        "200":
+          description: "status = \"ABERTO\" (literal) quando há caso aberto — cond_status_caso compara isso"
+          content: { application/json: { schema: { $ref: '#/components/schemas/PessoaPresaCasosResp' } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/pessoa-presa/orgao-responsavel:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Órgão responsável pelo réu PRESO (\"API fake\")"
+      security: []
+      parameters:
+        - { in: query, name: idSeap, required: true, schema: { type: string }, description: "dados_apenado.idSeap" }
+        - { in: query, name: preferencia, schema: { type: string }, description: "preferência de atendimento (remoto/presencial) — ainda não usada pra escolher órgão" }
+      responses:
+        "200":
+          description: "status = \"encontrado\" (literal) quando há órgão vinculado — cond_tem_orgao compara isso"
+          content: { application/json: { schema: { $ref: '#/components/schemas/PessoaPresaOrgaoResp' } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/pessoa-presa/orgao-responsavel-liberto:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Órgão responsável pelo réu LIBERTO (\"API fake\")"
+      security: []
+      parameters:
+        - { in: query, name: idSeap, required: true, schema: { type: string }, description: "dados_apenado.idSeap" }
+      responses:
+        "200":
+          description: "status = \"encontrado\" (literal) quando há órgão vinculado — cond_tem_orgao compara isso"
+          content: { application/json: { schema: { $ref: '#/components/schemas/PessoaPresaOrgaoResp' } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/plantao/vigente:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Plantão vigente não-municipal (\"API fake\") — fluxo reutilizável Plantão"
+      security: []
+      responses:
+        "200":
+          description: "status = \"encontrado\" (literal) quando há plantão ativo com tipo != MUNICIPAL"
+          content: { application/json: { schema: { $ref: '#/components/schemas/PlantaoOrgaoResp' } } }
+        "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/recesso/vigente:
+    get:
+      tags: [Interno (fluxo)]
+      summary: "Recesso forense vigente — proxy GET api/recesso/vigente do gateway — fluxo reutilizável Recesso"
+      security: []
+      responses:
+        "200":
+          description: "status literal SEM_RECESSO_VIGENTE ou RECESSO_VIGENTE"
+          content: { application/json: { schema: { $ref: '#/components/schemas/RecessoResp' } } }
   /api/ficha:
     post:
       tags: [Interno (fluxo)]
       summary: Gera imagem da ficha do assistido (S3, efêmera)
       security: []
-      responses: { "200": { description: "{ url }" } }
+      responses:
+        "200": { description: "{ url }" }
+        "500": { description: falha ao gerar a ficha (log do erro real fica só no servidor), content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /api/kyc/iniciar:
     post:
       tags: [Interno (fluxo)]
       summary: Inicia KYC (gera link)
       security: []
-      responses: { "200": { description: OK } }
+      responses:
+        "200": { description: OK }
+        "400": { description: cpf inválido, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /api/kyc/captura:
     post:
       tags: [Interno (fluxo)]
       summary: Recebe selfie e verifica identidade
       security: []
-      responses: { "200": { description: "{ confirmado, score }" } }
+      responses:
+        "200": { description: "{ confirmado, score }" }
+        "400": { description: token inválido ou expirado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /api/kyc/status:
     post:
       tags: [Interno (fluxo)]
@@ -951,16 +1615,30 @@ paths:
                 file: { type: string, format: binary, description: "jpeg/png/PDF, máx 10MB" }
       responses:
         "200": { description: "{ nome, tamanho, mimeType, messages } — conversa avançada" }
+        "400": { description: "sessionId ou file ausente" }
         "404": { description: "sessionId inexistente ou conversa não ativa" }
         "413": { description: Arquivo grande demais }
         "415": { description: "Tipo de arquivo não aceito (magic bytes)" }
         "429": { description: Rate limit de uploads excedido }
+        "503": { description: banco não configurado }
 
   # ── Mock (teste) ───────────────────────────────────────────
   /mock/verificar-cpf:
-    post: { tags: [Mock], security: [], summary: Mock consulta CPF, responses: { "200": { description: OK } } }
+    post:
+      tags: [Mock]
+      security: []
+      summary: Mock consulta CPF
+      responses:
+        "200": { description: OK }
+        "400": { description: cpf obrigatório, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /mock/cadastrar-usuario:
-    post: { tags: [Mock], security: [], summary: Mock cadastro, responses: { "200": { description: OK } } }
+    post:
+      tags: [Mock]
+      security: []
+      summary: Mock cadastro
+      responses:
+        "200": { description: OK }
+        "400": { description: campos obrigatórios faltando, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
   /mock/kyc:
     post: { tags: [Mock], security: [], summary: Mock reconhecimento facial, responses: { "200": { description: OK } } }
   /mock/agendamento:
