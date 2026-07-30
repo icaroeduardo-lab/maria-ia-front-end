@@ -303,6 +303,15 @@ export interface paths {
                         "application/json": components["schemas"]["Flow"];
                     };
                 };
+                /** @description name obrigatório */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -424,6 +433,15 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description Não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -595,6 +613,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         put?: never;
@@ -633,6 +660,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -668,6 +704,15 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description Não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -761,6 +806,64 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/flows/{id}/dados-teste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Define o seed de dadosColetados usado pelo chat de teste (issue
+         * @description Sem lock otimista por updatedAt e sem criar FlowVersion (mesmo raciocínio de marcar-template/desmarcar-template) — é um rascunho de teste, não conteúdo do fluxo. Usado por /admin/test-chat via dadosIniciais na 1ª chamada da sessão.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        dadosTeste?: {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Flow"];
+                    };
+                };
+                /** @description Não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -921,6 +1024,15 @@ export interface paths {
                         "application/json": {
                             assistido: components["schemas"]["Assistido"] | null;
                         };
+                    };
+                };
+                /** @description Conversa não encontrada */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
                     };
                 };
             };
@@ -1183,6 +1295,24 @@ export interface paths {
                         "application/json": components["schemas"]["Assistido"];
                     };
                 };
+                /** @description cpf inválido (11 dígitos) ou nome obrigatório */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+                /** @description CPF já cadastrado */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -1226,7 +1356,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -1256,7 +1388,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -1279,6 +1413,15 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description Não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -1406,6 +1549,15 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description email/senha obrigatórios ou role inválida */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -1554,10 +1706,30 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description flow de teste (opcional — omitido usa o grafo estático) */
+                        flowId?: string;
+                        sessionId: string;
+                        message?: string;
+                        /** @description Seed de dadosColetados (issue #134) — só tem efeito na 1ª chamada da sessão (thread nova); testar subfluxo isolado sem depender de nós anteriores do fluxo pai (idPessoa/ idAssunto/relato etc.). Pergunta com a mesma chave já preenchida é pulada (skip-gate). */
+                        dadosIniciais?: {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
             responses: {
                 /** @description { messages, done, dadosColetados, tipoPerguntaPendente, trilha, resumo?, metadados? } */
                 200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description sessionId obrigatório */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1701,6 +1873,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -1735,6 +1916,24 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description cpf inválido ou nome obrigatório */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -1768,6 +1967,33 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description cpf inválido */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+                /** @description assistido não encontrado */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -1806,6 +2032,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["CasosConsultaResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
                     };
                 };
             };
@@ -1847,8 +2082,702 @@ export interface paths {
                         "application/json": components["schemas"]["CasoDetalheResp"];
                     };
                 };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/elegibilidade/verificar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Gate de área de atuação (DDD RJ → UF cadastro Verde → caso/processo Verde → perguntar direto) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ElegibilidadeReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ElegibilidadeResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/consultar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agendamentos em aberto do assistido (tabela Agendamento) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CpfReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendamentosConsultaResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/detalhe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Detalhe de 1 agendamento (por id ou índice da lista anterior) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AgendamentoDetalheReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendamentoDetalheResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/detalhe-rico": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Detalhe rico de 1 agendamento (endereço, documentos, órgão, idAssistido) — proxy GET api/agendamento/{idEvento} do gateway (issue #111) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AgendamentoDetalheRicoReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendamentoDetalheRicoResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/vagas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vagas disponíveis pra reagendar — proxy GET api/agendamento/vagas/{idEvento} do gateway */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AgendamentoVagasReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendamentoVagasResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/vaga-detalhe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve a vaga escolhida do JSON que /vagas já retornou (índice, zero re-fetch) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AgendamentoVagaDetalheReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendamentoVagaDetalheResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/reagendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reagenda um agendamento — proxy POST api/agendamento/reagendar do gateway */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AgendamentoReagendarReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendamentoReagendarResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/desmarcar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Desmarca um agendamento — proxy POST api/agendamento/desmarcar do gateway (ação irreversível, dispara e-mail real) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AgendamentoDesmarcarReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendamentoDesmarcarResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/verificar-duplicados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Checa agendamento duplicado do mesmo assunto — proxy GET api/agendamento/verificar-duplicados do gateway */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["VerificarDuplicadosReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VerificarDuplicadosResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agendamentos/agendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cria agendamento novo (primeiro atendimento, com hora marcada) — proxy POST api/agendamento/agendar do gateway */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AgendarReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgendarResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orgao/primeiro-atendimento": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Consulta o órgão responsável pelo primeiro atendimento — decide agendamento (hora) vs encaminhamento (sem hora) via tipo_atendimento */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["OrgaoPrimeiroAtendimentoReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrgaoPrimeiroAtendimentoResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bloqueio/verificar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Checa bloqueio ativo (carência) de idPessoa/idAssunto/idOrgao antes de agendar/encaminhar — proxy GET api/bloqueio do gateway */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BloqueioVerificarReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BloqueioVerificarResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/encaminhamento/encaminhar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cria encaminhamento (primeiro atendimento sem hora marcada) — proxy POST api/encaminhamento/encaminhar do gateway */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["EncaminharReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EncaminharResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assunto/consultar-item-arvore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Navega 1 nível da árvore de assuntos do Verde (idCategoria na 1ª chamada, idItemCategoria nas seguintes) — proxy GET api/assunto/consultar-item-arvore do gateway */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ConsultarItemArvoreReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConsultarItemArvoreResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assunto/resolver-escolha": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve o número escolhido pro id da resposta da árvore — zero chamada nova ao Verde */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ResolverEscolhaReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResolverEscolhaResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assunto/metadados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Urgência e documentos necessários do assunto (idAssunto já identificado) — proxy GET api/assunto/{idAssunto} do gateway */
+        get: {
+            parameters: {
+                query: {
+                    idAssunto: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssuntoMetadadosResp"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1933,6 +2862,329 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pessoa-presa/consultar-rg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dados do apenado por RG ("API fake" — SEAP/apenado real ainda não existe) */
+        get: {
+            parameters: {
+                query: {
+                    /** @description somente dígitos */
+                    rg: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Resposta FLAT (sem aninhar em "dados") — bate com {{dados_apenado.*}} do fluxo */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PessoaPresaConsultaResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pessoa-presa/consultar-processo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Origem + id do processo por número ("API fake") */
+        get: {
+            parameters: {
+                query: {
+                    /** @description somente dígitos */
+                    numero: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description { encontrado, numero, origem, idProcesso } */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PessoaPresaProcessoResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pessoa-presa/casos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Casos abertos da pessoa presa ("API fake") */
+        get: {
+            parameters: {
+                query: {
+                    /** @description dados_apenado.idPessoa */
+                    idPessoaPresa: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description status = "ABERTO" (literal) quando há caso aberto — cond_status_caso compara isso */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PessoaPresaCasosResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pessoa-presa/orgao-responsavel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Órgão responsável pelo réu PRESO ("API fake") */
+        get: {
+            parameters: {
+                query: {
+                    /** @description dados_apenado.idSeap */
+                    idSeap: string;
+                    /** @description preferência de atendimento (remoto/presencial) — ainda não usada pra escolher órgão */
+                    preferencia?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description status = "encontrado" (literal) quando há órgão vinculado — cond_tem_orgao compara isso */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PessoaPresaOrgaoResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pessoa-presa/orgao-responsavel-liberto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Órgão responsável pelo réu LIBERTO ("API fake") */
+        get: {
+            parameters: {
+                query: {
+                    /** @description dados_apenado.idSeap */
+                    idSeap: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description status = "encontrado" (literal) quando há órgão vinculado — cond_tem_orgao compara isso */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PessoaPresaOrgaoResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plantao/vigente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plantão vigente não-municipal ("API fake") — fluxo reutilizável Plantão */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description status = "encontrado" (literal) quando há plantão ativo com tipo != MUNICIPAL */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlantaoOrgaoResp"];
+                    };
+                };
+                /** @description banco não configurado */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recesso/vigente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recesso forense vigente — proxy GET api/recesso/vigente do gateway — fluxo reutilizável Recesso */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description status literal SEM_RECESSO_VIGENTE ou RECESSO_VIGENTE */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecessoResp"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ficha": {
         parameters: {
             query?: never;
@@ -1958,6 +3210,15 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description falha ao gerar a ficha (log do erro real fica só no servidor) */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -1993,6 +3254,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description cpf inválido */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -2026,6 +3296,15 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description token inválido ou expirado */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -2110,6 +3389,13 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description sessionId ou file ausente */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
                 /** @description sessionId inexistente ou conversa não ativa */
                 404: {
                     headers: {
@@ -2133,6 +3419,13 @@ export interface paths {
                 };
                 /** @description Rate limit de uploads excedido */
                 429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description banco não configurado */
+                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2172,6 +3465,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description cpf obrigatório */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -2205,6 +3507,15 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description campos obrigatórios faltando */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
                 };
             };
         };
@@ -2420,6 +3731,10 @@ export interface components {
             active: boolean;
             /** @description catálogo de templates — card #20260127 */
             isTemplate?: boolean;
+            /** @description seed sugerido de dadosColetados p/ testar subfluxo isolado (issue #134) — metadado, não versiona */
+            dadosTeste?: {
+                [key: string]: string;
+            } | null;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -2465,29 +3780,319 @@ export interface components {
         };
         CasosConsultaResp: {
             tem_casos?: boolean;
+            /** @description campos preservam os nomes originais do Verde (issue maria-ia#110) */
             casos?: {
+                id?: number;
+                status?: string;
+                tipoCaso?: string;
+                assunto?: {
+                    id?: number;
+                    nome?: string;
+                } | null;
+                numeroProcesso?: string | null;
+                dataAtualizacao?: string | null;
+                orgaosAssociados?: {
+                    id?: number;
+                    nome?: string;
+                    responsavel?: boolean;
+                }[];
+                andamentos?: {
+                    titulo?: string;
+                    descricao?: string;
+                    data?: string;
+                }[];
+            }[];
+            lista?: string;
+        };
+        PessoaPresaConsultaResp: {
+            encontrado: boolean;
+            /** @description ATIVO | LIBERTADO | FORAGIDO | EGRESSO | EVADIDO | ... ("nao_encontrado" se não achou) */
+            situacao: string;
+            nome: string;
+            /** @description CONDENADO | SENTENCIADO | PROVISORIO | ... */
+            tipoPreso: string;
+            regime: string;
+            /** @description usado em GET /api/pessoa-presa/casos?idPessoaPresa= */
+            idPessoa: string;
+            /** @description usado em GET /api/pessoa-presa/orgao-responsavel(-liberto)?idSeap= */
+            idSeap: string;
+        };
+        PessoaPresaProcessoResp: {
+            encontrado: boolean;
+            numero: string;
+            /** @description ex: SEEU */
+            origem: string;
+            idProcesso: string;
+        };
+        PessoaPresaCasosResp: {
+            tem_casos: boolean;
+            /** @description "ABERTO" (literal, comparado pelo nó condicao) ou "" se não há caso aberto */
+            status: string;
+            casos: {
                 identificador?: string;
                 tipo?: string;
             }[];
-            lista?: string;
+            lista: string;
+        };
+        PessoaPresaOrgaoResp: {
+            /** @description "encontrado" (literal, comparado pelo nó condicao) ou "nao_encontrado" */
+            status: string;
+            orgao: {
+                nome?: string;
+                telefone?: string;
+                endereco?: string;
+            } | null;
+        };
+        PlantaoOrgaoResp: {
+            /** @description "encontrado" (literal, comparado pelo nó condicao) ou "nao_encontrado" */
+            status: string;
+            orgao: {
+                nome?: string;
+                telefone?: string | null;
+                endereco?: string | null;
+                municipio?: string;
+                /** @description REGIONAL | CAPITAL — nunca MUNICIPAL (a rota já filtra) */
+                tipo?: string;
+            } | null;
+        };
+        RecessoResp: {
+            /** @description "SEM_RECESSO_VIGENTE" ou "RECESSO_VIGENTE" (literais, comparados pelo nó condicao) */
+            status: string;
+            /** @description mensagem pro assistido quando em recesso */
+            mensagem?: string | null;
         };
         CpfReq: {
             cpf: string;
         };
+        ElegibilidadeReq: {
+            /** @description wa_id cru (E.164 sem +), injetado automaticamente no invoke inicial — ver chat.ts */
+            telefone_whatsapp?: string;
+            cpf?: string;
+        };
+        ElegibilidadeResp: {
+            /** @description "ok" (segue normal) ou "perguntar" (fluxo pergunta residência/processo direto) */
+            decisao: string;
+        };
         CasoDetalheReq: {
-            /** @description identificador completo ou índice (1,2,...) */
+            /** @description id completo ou índice (1,2,...) */
             caso_sel?: string;
-            /** @description JSON da consulta anterior (para mapear índice) */
+            /** @description JSON da consulta anterior (para mapear índice, resolve sem re-fetch) */
             casos?: string;
         };
         CasoDetalheResp: {
             encontrado: boolean;
-            identificador?: string;
-            tipo?: string;
+            id?: number;
             status?: string;
+            tipoCaso?: string;
+            assunto?: {
+                id?: number;
+                nome?: string;
+            } | null;
+            orgaosAssociados?: {
+                id?: number;
+                nome?: string;
+                responsavel?: boolean;
+            }[];
+            /** @description só o mais recente (índice 0), não o histórico completo */
+            andamentos?: {
+                titulo?: string;
+                descricao?: string;
+                data?: string;
+            }[];
+            numeroProcesso?: string | null;
+            /** @description junta GET /api/processo/{numero} quando há numeroProcesso — mesmo formato dessa rota, sem remapear */
+            processo?: Record<string, never> | null;
+            /** @description "true"/"false" — flag auxiliar pro fluxo rotear (condicao só faz match exato) */
+            temProcesso?: string;
+        };
+        AgendamentosConsultaResp: {
+            tem_agendamentos?: boolean;
+            agendamentos?: {
+                id?: string;
+                tipo?: string;
+                /** Format: date-time */
+                data?: string;
+                local?: string | null;
+            }[];
+            /** @description texto formatado, 1 linha por agendamento */
+            lista?: string;
+        };
+        AgendamentoDetalheReq: {
+            /** @description id completo ou índice (1,2,...) */
+            agendamento_sel?: string;
+            /** @description JSON da consulta anterior (para mapear índice) */
+            agendamentos?: string;
+        };
+        AgendamentoDetalheResp: {
+            encontrado: boolean;
+            id?: string;
+            tipo?: string;
             /** Format: date-time */
-            criadoEm?: string;
+            data?: string;
+            local?: string | null;
+            status?: string;
             assistido?: string;
+        };
+        AgendamentoDetalheRicoReq: {
+            idEvento: string;
+        };
+        /** @description campos preservam os nomes originais do Verde (issue maria-ia#111, gateway#21) */
+        AgendamentoDetalheRicoResp: {
+            encontrado: boolean;
+            idEvento?: number;
+            idAssistido?: number;
+            idOrgao?: number;
+            idCaso?: number | null;
+            nomeAssistido?: string;
+            nomeOrgao?: string;
+            endereco?: string;
+            data?: string;
+            horario?: string;
+            documentosNecessarios?: string | null;
+            nomeAssunto?: string | null;
+        };
+        AgendamentoVagasReq: {
+            idEvento: string;
+        };
+        AgendamentoVagasResp: {
+            tem_vagas?: boolean;
+            vagas?: {
+                idIntervalo?: number;
+                data?: string;
+                hora?: string;
+            }[];
+            /** @description texto formatado, 1 linha por vaga */
+            lista?: string;
+        };
+        AgendamentoVagaDetalheReq: {
+            /** @description índice (1,2,...) da lista de vagas anterior */
+            vaga_sel?: string;
+            /** @description JSON da consulta de vagas anterior (resolve sem re-fetch) */
+            vagas?: string;
+        };
+        AgendamentoVagaDetalheResp: {
+            encontrada: boolean;
+            idIntervalo?: number;
+            data?: string;
+            hora?: string;
+        };
+        AgendamentoReagendarReq: {
+            idAgendamento: string;
+            /** @description idIntervalo da vaga escolhida */
+            configuracaoIntervaloAgenda: string;
+            dataNova: string;
+            /** @description combinada com dataNova antes de enviar ao Verde ("DD/MM/YYYY HH:mm") */
+            horaNova?: string;
+        };
+        AgendamentoReagendarResp: {
+            sucesso: boolean;
+        };
+        AgendamentoDesmarcarReq: {
+            idAgendamento: string;
+            idPessoa: string;
+        };
+        AgendamentoDesmarcarResp: {
+            sucesso: boolean;
+            /** @description 204 do Verde (true) vs 200 sucesso parcial (false, e-mail falhou) */
+            emailEnviado?: boolean;
+        };
+        VerificarDuplicadosReq: {
+            idPessoa: number;
+            idAssunto: number;
+        };
+        VerificarDuplicadosResp: {
+            tem_duplicado: boolean;
+            idAgendamentoDuplicado?: number | null;
+            dataDuplicado?: string | null;
+        };
+        AgendarReq: {
+            idPessoa: number;
+            idOrgao: number;
+            idAssunto: number;
+            /** @description vindo de orgao/primeiro-atendimento (primeira_vaga_intervalo) ou agendamentos/vagas */
+            idIntervalo: number;
+            /** @description "DD/MM/YYYY HH:mm" */
+            dataVaga: string;
+            resumoAtendimento?: string;
+            textoComplemento?: string;
+        };
+        AgendarResp: {
+            sucesso: boolean;
+            idAgendamento?: number | null;
+        };
+        OrgaoPrimeiroAtendimentoReq: {
+            idPessoa: number;
+            idAssunto: number;
+            complemento?: string;
+        };
+        OrgaoPrimeiroAtendimentoResp: {
+            tem_orgao: boolean;
+            orgao_id?: number;
+            orgao_nome?: string;
+            /** @description "agendamento" | "encaminhamento" | "outros" — normalizado do tipoAtendimento bruto do Verde */
+            tipo_atendimento?: string;
+            idLocalAtendimento?: number | null;
+            primeira_vaga_intervalo?: number | null;
+            primeira_vaga_data?: string | null;
+            primeira_vaga_hora?: string | null;
+        };
+        BloqueioVerificarReq: {
+            idPessoa: number;
+            idAssunto: number;
+            idOrgao: number;
+        };
+        BloqueioVerificarResp: {
+            tem_bloqueio: boolean;
+            data_bloqueio?: string | null;
+            data_desbloqueio?: string | null;
+        };
+        EncaminharReq: {
+            idPessoa: number;
+            idOrgao: number;
+            idAssunto: number;
+            urgencia?: boolean;
+            /** @description "Remoto" | "Presencial" */
+            preferenciaAtendimento: string;
+            /** @description obrigatório quando Presencial */
+            idLocalAtendimento?: number;
+            textoComplemento?: string;
+        };
+        EncaminharResp: {
+            sucesso: boolean;
+            idEncaminhamento?: number | null;
+        };
+        ConsultarItemArvoreReq: {
+            /** @description só na 1ª chamada */
+            idCategoria?: number;
+            /** @description resposta escolhida no nível anterior */
+            idItemCategoria?: number;
+        };
+        ConsultarItemArvoreResp: {
+            assunto_encontrado: boolean;
+            idAssunto?: number | null;
+            pergunta?: string;
+            respostas?: {
+                id?: number;
+                resposta?: string;
+            }[];
+            /** @description respostas numeradas, pronta pra exibir */
+            lista?: string;
+        };
+        ResolverEscolhaReq: {
+            /** @description índice digitado (1, 2, ...) ou o texto da resposta */
+            escolha_sel: string;
+            /** @description JSON cru da resposta anterior de consultar-item-arvore (mesma chave de dadosColetados) */
+            resultado_arvore: string;
+        };
+        ResolverEscolhaResp: {
+            encontrada: boolean;
+            idItemCategoria?: number | null;
+        };
+        AssuntoMetadadosResp: {
+            encontrado: boolean;
+            urgente: boolean;
+            /** @description txDocumentosNecessarios do Verde — texto pronto (markdown-like) pra exibir ao assistido. "plantao" do Verde é ignorado de propósito (fora de escopo, issue #132). */
+            documentos_necessarios?: string | null;
         };
         /** @description Configuração global da IA (singleton id=default) */
         ConfigIA: {
@@ -2521,6 +4126,8 @@ export interface components {
             categoria?: string | null;
             ultimaEtapa?: string | null;
             protocoloDperj?: string | null;
+            /** @description rótulos livres marcados pelo nó "tag" do fluxo (card #20260139) */
+            tags?: string[];
             /** Format: date-time */
             startedAt: string;
             /** Format: date-time */
