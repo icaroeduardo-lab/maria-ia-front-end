@@ -39,7 +39,9 @@ export function BolhaMensagem({
         variante === "whatsapp"
           ? cn(
               "rounded-lg shadow-sm",
-              doUsuario ? "self-end text-black" : "self-start bg-white text-black"
+              doUsuario
+                ? "self-end text-black"
+                : "self-start bg-white text-black"
             )
           : cn(
               "rounded-2xl",
@@ -82,7 +84,11 @@ function Bloco({
 
   switch (bloco.type) {
     case "text":
-      return <p>{renderizarComNegrito(bloco.text)}</p>
+      return (
+        <p className="whitespace-pre-line">
+          {renderizarComNegrito(bloco.text)}
+        </p>
+      )
 
     case "image_url":
       return (
