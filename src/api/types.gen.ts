@@ -1697,7 +1697,7 @@ export interface paths {
         put?: never;
         /**
          * Chat de teste no painel (retorna resumo + metadados)
-         * @description Roda o grafo direto num checkpoint LangGraph de teste (thread_id: test:<flowId>:<sessionId>), sem criar Conversation. Resposta inclui tipoPerguntaPendente (cpf/telefone/cep/data/documento/ sim_nao/opcoes/texto/null), resolvido contra o flow informado (ou o registro estático se flowId for omitido) — o painel usa esse campo pra decidir o widget de resposta (ex: upload em vez de texto livre). Também inclui trilha: lista ordenada dos ids de node do flow visitados na sessão (do primeiro até o nó atual/pausado) — atravessa subfluxos embutidos naturalmente (ids prefixados sf_<node>_<idOriginal>). Vazio quando flowId é omitido (grafo estático, sem canvas) ou após reiniciar a sessão (novo sessionId ou #sair). Alimenta o destaque da trajetória no canvas do builder visual.
+         * @description Roda o grafo direto num checkpoint LangGraph de teste (thread_id: test:<flowId>:<sessionId>), sem criar Conversation. Resposta inclui tipoPerguntaPendente (cpf/telefone/cep/data/documento/ email/sim_nao/opcoes/texto/null), resolvido contra o flow informado (ou o registro estático se flowId for omitido) — o painel usa esse campo pra decidir o widget de resposta (ex: upload em vez de texto livre). Também inclui trilha: lista ordenada dos ids de node do flow visitados na sessão (do primeiro até o nó atual/pausado) — atravessa subfluxos embutidos naturalmente (ids prefixados sf_<node>_<idOriginal>). Vazio quando flowId é omitido (grafo estático, sem canvas) ou após reiniciar a sessão (novo sessionId ou #sair). Alimenta o destaque da trajetória no canvas do builder visual.
          */
         post: {
             parameters: {
@@ -2003,7 +2003,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/casos/consultar": {
+    "/api/assistidos/campo-preenchido": {
         parameters: {
             query?: never;
             header?: never;
@@ -2012,7 +2012,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Casos em aberto do assistido (tabela Caso) */
+        /** Gate genérico 'esse campo tem valor?' — usado no gate de UF≠RJ pra distinguir UF real de outro estado (pula pra transbordo humano) de UF vazia (segue pro fluxo de perguntar residência) */
         post: {
             parameters: {
                 query?: never;
@@ -2022,7 +2022,46 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["CpfReq"];
+                    "application/json": components["schemas"]["CampoPreenchidoReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CampoPreenchidoResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/casos/consultar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Casos em aberto do assistido (tabela Caso) — paginado de 10 em 10 (card #20260202) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CasosConsultaReq"];
                 };
             };
             responses: {
@@ -2128,6 +2167,123 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ElegibilidadeResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/elegibilidade/tem-caso-aberto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Checa isoladamente se o CPF tem caso/processo aberto no Verde (prova RJ) — usado no gate pós-ficha, sem re-checar DDD/UF */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CpfReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TemCasoAbertoResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/elegibilidade/tem-pendencia-aberto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Caso OU agendamento em aberto no Verde — 1º passo da hierarquia do gate pós-ficha (card #20260202): pendência > processo real (PDPJ) > UF da ficha > pergunta direta */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CpfReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TemPendenciaAbertoResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/elegibilidade/reside-rj-ficha": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** UF ou DDD do telefone já presentes na ficha do Verde (resultado_cpf) indicam RJ? — pula a pergunta elig_pergunta_reside quando true */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ResideRjFichaReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResideRjFichaResp"];
                     };
                 };
             };
@@ -2862,6 +3018,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/processos/existe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Checa (booleano) se um número de processo existe no PDPJ — usado pro gate de elegibilidade confirmar processo autodeclarado (card #20260202) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ProcessoExisteReq"];
+                };
+            };
+            responses: {
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProcessoExisteResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pessoa-presa/consultar-rg": {
         parameters: {
             query?: never;
@@ -3439,6 +3634,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documentos/verificar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verifica documento de identidade por OCR (compara nome/CPF extraídos com o cadastro)
+         * @description Busca o documento mais recente enviado nessa sessão (bucket privado — ver /api/upload-documento), roda OCR via Bedrock multimodal e compara nome/CPF extraídos com o que o assistido já digitou no cadastro (dadosColetados.nome/cpf da mesma sessão). Sem JWT: autenticação é por posse do sessionId. Nunca retorna nome/CPF extraído bruto (LGPD) — só os booleans de match.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description sessionId/thread_id da conversa (aceita também _sessao, mandado automaticamente pelo nó api) */
+                        sessionId: string;
+                        /** @description nome já digitado no cadastro — mandado pelo nó api via camposCorpo; sem isso, cai pro snapshot em Postgres */
+                        nome?: string;
+                        /** @description cpf já digitado no cadastro — mesmo racional do nome */
+                        cpf?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description { match, detalhes: { nome_ok, cpf_ok } } */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description sessionId ausente */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description nenhum documento encontrado para essa sessão no bucket */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description nome/cpf ainda não coletados nesta sessão */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description falha ao processar o documento (OCR/Bedrock) */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Erro"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mock/verificar-cpf": {
         parameters: {
             query?: never;
@@ -3778,8 +4051,22 @@ export interface components {
             resumo?: string;
             numero?: string;
         };
+        ProcessoExisteReq: {
+            numero?: string;
+        };
+        ProcessoExisteResp: {
+            /** @description true se o número de processo foi encontrado no PDPJ */
+            existe: boolean;
+        };
+        CasosConsultaReq: {
+            cpf?: string;
+            /** @description string acumulada pelo fluxo (1 char por página já vista) — comprimento decide a página (card #20260202, paginação de 10 em 10). Omitido/vazio = página 1. */
+            pagina_marcador?: string;
+        };
         CasosConsultaResp: {
             tem_casos?: boolean;
+            /** @description true se existem mais casos além dos 10 já retornados em `lista` */
+            temMais?: boolean;
             /** @description campos preservam os nomes originais do Verde (issue maria-ia#110) */
             casos?: {
                 id?: number;
@@ -3872,6 +4159,32 @@ export interface components {
         ElegibilidadeResp: {
             /** @description "ok" (segue normal) ou "perguntar" (fluxo pergunta residência/processo direto) */
             decisao: string;
+        };
+        TemCasoAbertoResp: {
+            /** @description true se o CPF tem caso/processo aberto no Verde (prova RJ na prática) */
+            tem_caso: boolean;
+        };
+        TemPendenciaAbertoResp: {
+            /** @description true se o CPF tem caso OU agendamento em aberto no Verde (prova RJ na prática) — 1º passo da hierarquia do gate */
+            tem_pendencia: boolean;
+        };
+        ResideRjFichaReq: {
+            /** @description resultado_cpf.dados.uf (ficha do Verde) */
+            uf?: string;
+            /** @description resultado_cpf.dados.telefone (ficha do Verde) — formato não garantido, DDD extraído de forma defensiva */
+            telefone?: string;
+        };
+        ResideRjFichaResp: {
+            /** @description true se UF da ficha é RJ ou DDD do telefone da ficha é do RJ (21/22/24) */
+            reside_rj: boolean;
+        };
+        CampoPreenchidoReq: {
+            /** @description valor a checar (ex: UF da ficha, promovida pra chave flat antes) */
+            valor?: string;
+        };
+        CampoPreenchidoResp: {
+            /** @description true se valor não está vazio */
+            preenchido: boolean;
         };
         CasoDetalheReq: {
             /** @description id completo ou índice (1,2,...) */
