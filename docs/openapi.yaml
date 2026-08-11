@@ -162,10 +162,27 @@ components:
       properties:
         resumo: { type: string }
         numero: { type: string }
+    ProcessoExisteReq:
+      type: object
+      properties:
+        numero: { type: string }
+    ProcessoExisteResp:
+      type: object
+      required: [existe]
+      properties:
+        existe: { type: boolean, description: "true se o número de processo foi encontrado no PDPJ" }
+    CasosConsultaReq:
+      type: object
+      properties:
+        cpf: { type: string }
+        pagina_marcador:
+          type: string
+          description: "string acumulada pelo fluxo (1 char por página já vista) — comprimento decide a página (card #20260202, paginação de 10 em 10). Omitido/vazio = página 1."
     CasosConsultaResp:
       type: object
       properties:
         tem_casos: { type: boolean }
+        temMais: { type: boolean, description: "true se existem mais casos além dos 10 já retornados em `lista`" }
         casos:
           type: array
           description: "campos preservam os nomes originais do Verde (issue maria-ia#110)"
@@ -280,6 +297,35 @@ components:
       required: [decisao]
       properties:
         decisao: { type: string, description: "\"ok\" (segue normal) ou \"perguntar\" (fluxo pergunta residência/processo direto)" }
+    TemCasoAbertoResp:
+      type: object
+      required: [tem_caso]
+      properties:
+        tem_caso: { type: boolean, description: "true se o CPF tem caso/processo aberto no Verde (prova RJ na prática)" }
+    TemPendenciaAbertoResp:
+      type: object
+      required: [tem_pendencia]
+      properties:
+        tem_pendencia: { type: boolean, description: "true se o CPF tem caso OU agendamento em aberto no Verde (prova RJ na prática) — 1º passo da hierarquia do gate" }
+    ResideRjFichaReq:
+      type: object
+      properties:
+        uf: { type: string, description: "resultado_cpf.dados.uf (ficha do Verde)" }
+        telefone: { type: string, description: "resultado_cpf.dados.telefone (ficha do Verde) — formato não garantido, DDD extraído de forma defensiva" }
+    ResideRjFichaResp:
+      type: object
+      required: [reside_rj]
+      properties:
+        reside_rj: { type: boolean, description: "true se UF da ficha é RJ ou DDD do telefone da ficha é do RJ (21/22/24)" }
+    CampoPreenchidoReq:
+      type: object
+      properties:
+        valor: { type: string, description: "valor a checar (ex: UF da ficha, promovida pra chave flat antes)" }
+    CampoPreenchidoResp:
+      type: object
+      required: [preenchido]
+      properties:
+        preenchido: { type: boolean, description: "true se valor não está vazio" }
     CasoDetalheReq:
       type: object
       properties:
@@ -1225,7 +1271,7 @@ paths:
         Roda o grafo direto num checkpoint LangGraph de teste
         (thread_id: test:<flowId>:<sessionId>), sem criar Conversation.
         Resposta inclui tipoPerguntaPendente (cpf/telefone/cep/data/documento/
-        sim_nao/opcoes/texto/null), resolvido contra o flow informado (ou o
+        email/sim_nao/opcoes/texto/null), resolvido contra o flow informado (ou o
         registro estático se flowId for omitido) — o painel usa esse campo pra
         decidir o widget de resposta (ex: upload em vez de texto livre).
         Também inclui trilha: lista ordenada dos ids de node do flow visitados
@@ -1314,12 +1360,20 @@ paths:
         "400": { description: cpf inválido, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
         "404": { description: assistido não encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
         "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
+  /api/assistidos/campo-preenchido:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Gate genérico 'esse campo tem valor?' — usado no gate de UF≠RJ pra distinguir UF real de outro estado (pula pra transbordo humano) de UF vazia (segue pro fluxo de perguntar residência)"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CampoPreenchidoReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CampoPreenchidoResp' } } } }
   /api/casos/consultar:
     post:
       tags: [Interno (fluxo)]
-      summary: Casos em aberto do assistido (tabela Caso)
+      summary: "Casos em aberto do assistido (tabela Caso) — paginado de 10 em 10 (card #20260202)"
       security: []
-      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CpfReq' } } } }
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CasosConsultaReq' } } } }
       responses:
         "200": { content: { application/json: { schema: { $ref: '#/components/schemas/CasosConsultaResp' } } } }
         "503": { description: banco não configurado, content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
@@ -1340,6 +1394,30 @@ paths:
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ElegibilidadeReq' } } } }
       responses:
         "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ElegibilidadeResp' } } } }
+  /api/elegibilidade/tem-caso-aberto:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Checa isoladamente se o CPF tem caso/processo aberto no Verde (prova RJ) — usado no gate pós-ficha, sem re-checar DDD/UF"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CpfReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/TemCasoAbertoResp' } } } }
+  /api/elegibilidade/tem-pendencia-aberto:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Caso OU agendamento em aberto no Verde — 1º passo da hierarquia do gate pós-ficha (card #20260202): pendência > processo real (PDPJ) > UF da ficha > pergunta direta"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/CpfReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/TemPendenciaAbertoResp' } } } }
+  /api/elegibilidade/reside-rj-ficha:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "UF ou DDD do telefone já presentes na ficha do Verde (resultado_cpf) indicam RJ? — pula a pergunta elig_pergunta_reside quando true"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ResideRjFichaReq' } } } }
+      responses:
+        "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ResideRjFichaResp' } } } }
   /api/agendamentos/consultar:
     post:
       tags: [Interno (fluxo)]
@@ -1485,6 +1563,13 @@ paths:
       security: []
       requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ResumoReq' } } } }
       responses: { "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ResumoResp' } } } } }
+  /api/processos/existe:
+    post:
+      tags: [Interno (fluxo)]
+      summary: "Checa (booleano) se um número de processo existe no PDPJ — usado pro gate de elegibilidade confirmar processo autodeclarado (card #20260202)"
+      security: []
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ProcessoExisteReq' } } } }
+      responses: { "200": { content: { application/json: { schema: { $ref: '#/components/schemas/ProcessoExisteResp' } } } } }
   /api/pessoa-presa/consultar-rg:
     get:
       tags: [Interno (fluxo)]
@@ -1621,6 +1706,34 @@ paths:
         "415": { description: "Tipo de arquivo não aceito (magic bytes)" }
         "429": { description: Rate limit de uploads excedido }
         "503": { description: banco não configurado }
+  /api/documentos/verificar:
+    post:
+      tags: [Interno (fluxo)]
+      summary: Verifica documento de identidade por OCR (compara nome/CPF extraídos com o cadastro)
+      description: >
+        Busca o documento mais recente enviado nessa sessão (bucket privado —
+        ver /api/upload-documento), roda OCR via Bedrock multimodal e compara
+        nome/CPF extraídos com o que o assistido já digitou no cadastro
+        (dadosColetados.nome/cpf da mesma sessão). Sem JWT: autenticação é por
+        posse do sessionId. Nunca retorna nome/CPF extraído bruto (LGPD) — só
+        os booleans de match.
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId: { type: string, description: "sessionId/thread_id da conversa (aceita também _sessao, mandado automaticamente pelo nó api)" }
+                nome: { type: string, description: "nome já digitado no cadastro — mandado pelo nó api via camposCorpo; sem isso, cai pro snapshot em Postgres" }
+                cpf: { type: string, description: "cpf já digitado no cadastro — mesmo racional do nome" }
+      responses:
+        "200": { description: "{ match, detalhes: { nome_ok, cpf_ok } }" }
+        "400": { description: "sessionId ausente" }
+        "404": { description: "nenhum documento encontrado para essa sessão no bucket" }
+        "422": { description: "nome/cpf ainda não coletados nesta sessão" }
+        "500": { description: "falha ao processar o documento (OCR/Bedrock)", content: { application/json: { schema: { $ref: '#/components/schemas/Erro' } } } }
 
   # ── Mock (teste) ───────────────────────────────────────────
   /mock/verificar-cpf:
