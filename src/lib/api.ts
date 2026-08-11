@@ -70,8 +70,7 @@ async function requisicao<T>(
     // token colado pelo gestor expirou/é inválido → limpa e o gate de token
     // reaparece pedindo um novo. Token de .env (dev) não é limpo (é estático).
     if (tokenVeioDoNavegador()) limparToken()
-  }
-  else if (resposta.status === 503) definirErroGlobal("banco-nao-configurado")
+  } else if (resposta.status === 503) definirErroGlobal("banco-nao-configurado")
   else definirErroGlobal(null)
 
   if (!resposta.ok) throw new ErroApi(resposta.status, dados)
@@ -97,4 +96,8 @@ export const api = {
     formData.append("file", arquivo)
     return requisicao<{ url: string }>("POST", "/admin/upload", { formData })
   },
+
+  /** POST multipart genérico (ex: /admin/test-chat/upload) — caller monta o FormData. */
+  postForm: <T>(caminho: string, formData: FormData) =>
+    requisicao<T>("POST", caminho, { formData }),
 }
