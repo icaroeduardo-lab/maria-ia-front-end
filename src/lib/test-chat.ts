@@ -35,10 +35,27 @@ export function normalizarConteudo(
     : content
 }
 
+// Tipo da pergunta pendente (resolvido pelo back contra o flow/nó atual) —
+// o painel usa pra decidir o widget de resposta (ex: "documento" → anexo em
+// vez de texto livre). Espelha TipoPergunta em maria-ia-back-end/src/core/perguntas.ts.
+export type TipoPerguntaPendente =
+  | "texto"
+  | "sim_nao"
+  | "opcoes"
+  | "cpf"
+  | "telefone"
+  | "cep"
+  | "data"
+  | "documento"
+  | "email"
+
 export interface RespostaTestChat {
   messages: MensagemTestChat[]
   done: boolean
   dadosColetados: Record<string, unknown>
+  // null quando não há pergunta pendente (turno inicial sem canvas, fluxo
+  // encerrado etc.) — ausente em respostas antigas/mockadas.
+  tipoPerguntaPendente?: TipoPerguntaPendente | null
   // Trilha de execução (issue #93 do back, card #20260163): ids ORDENADOS
   // dos nodes do flow visitados na sessão, do primeiro até o nó atual/
   // pausado — alimenta o destaque da trajetória no canvas (issue #125).
@@ -70,4 +87,22 @@ export function enviarMensagemDeTeste(params: {
   dadosIniciais?: Record<string, string>
 }) {
   return api.post<RespostaTestChat>("/admin/test-chat", params)
+}
+
+/**
+ * Envia um documento (jpeg/png/pdf, até 10MB) ao chat de teste — equivalente
+ * multipart de enviarMensagemDeTeste, usado quando `tipoPerguntaPendente`
+ * da resposta anterior vier "documento" (POST /admin/test-chat/upload,
+ * issue #82). Mesmo shape de resposta de /admin/test-chat, incluindo trilha.
+ */
+export function enviarDocumentoDeTeste(params: {
+  sessionId: string
+  flowId?: string
+  file: File
+}) {
+  const formData = new FormData()
+  formData.append("sessionId", params.sessionId)
+  if (params.flowId) formData.append("flowId", params.flowId)
+  formData.append("file", params.file)
+  return api.postForm<RespostaTestChat>("/admin/test-chat/upload", formData)
 }

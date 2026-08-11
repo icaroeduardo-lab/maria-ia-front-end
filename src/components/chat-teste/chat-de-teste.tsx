@@ -1,5 +1,5 @@
 import * as React from "react"
-import { RotateCcw, Send, Smartphone } from "lucide-react"
+import { Paperclip, RotateCcw, Send, Smartphone } from "lucide-react"
 
 import { BolhaMensagem } from "@/components/chat-teste/bolha-mensagem"
 import { MockupCelular } from "@/components/chat-teste/mockup-celular"
@@ -8,12 +8,7 @@ import { PainelDebug } from "@/components/chat-teste/painel-debug"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ErroApi } from "@/lib/api"
 import {
   extrairChavesReferenciadas,
@@ -23,10 +18,21 @@ import {
 } from "@/lib/chaves-fluxo"
 import { obterFluxo, salvarDadosTeste } from "@/lib/fluxos"
 import {
+  enviarDocumentoDeTeste,
   enviarMensagemDeTeste,
   gerarSessionIdDeTeste,
   type MensagemTestChat,
+  type TipoPerguntaPendente,
 } from "@/lib/test-chat"
+
+// Anexo de documento no chat de teste (issue #82 do back): formatos e
+// limite de tamanho aceitos por POST /admin/test-chat/upload.
+const FORMATOS_DOCUMENTO_ACEITOS = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+]
+const TAMANHO_MAXIMO_DOCUMENTO = 10 * 1024 * 1024 // 10MB
 
 /**
  * Conteúdo do chat de teste (docs/guia-frontend.md §2.3 e §3) — sem
@@ -68,6 +74,12 @@ export function ChatDeTeste({
   const [carregando, setCarregando] = React.useState(false)
   const [erro, setErro] = React.useState<string | null>(null)
   const [modoWhatsApp, setModoWhatsApp] = React.useState(false)
+  // Anexo de documento (issue #82): quando a última resposta trouxer
+  // tipoPerguntaPendente "documento", o form troca o input de texto por um
+  // botão de anexo — sinal resolvido pelo back contra o nó/flow atual.
+  const [tipoPerguntaPendente, setTipoPerguntaPendente] =
+    React.useState<TipoPerguntaPendente | null>(null)
+  const inputArquivoRef = React.useRef<HTMLInputElement>(null)
   // Guias (issue #135, #144): separa conversa/dadosColetados/dados de teste,
   // mas o estado continua todo aqui no pai — trocar de aba só troca o que é
   // exibido, não desmonta mensagens/dadosColetados/sessionId/valoresTeste.
@@ -91,8 +103,7 @@ export function ChatDeTeste({
   // valoresTeste ainda vazio (chaves/`dadosTeste` resolvem async, inclusive
   // via fetch quando `nodes`/`dadosTesteIniciais` não vêm de props) e o
   // subfluxo travaria exatamente no que se quer testar.
-  const [carregandoDadosTeste, setCarregandoDadosTeste] =
-    React.useState(true)
+  const [carregandoDadosTeste, setCarregandoDadosTeste] = React.useState(true)
   const [salvandoDadosTeste, setSalvandoDadosTeste] = React.useState(false)
   const [erroSalvarDadosTeste, setErroSalvarDadosTeste] = React.useState<
     string | null
@@ -101,7 +112,10 @@ export function ChatDeTeste({
   // Assinatura por tipo+data (ignora `position`) — recalcula chaves quando o
   // CONTEÚDO dos nós muda, não a cada drag no canvas.
   const assinaturaNos = React.useMemo(
-    () => nodes?.map((no) => `${no.type}:${JSON.stringify(no.data ?? {})}`).join("|") ?? null,
+    () =>
+      nodes
+        ?.map((no) => `${no.type}:${JSON.stringify(no.data ?? {})}`)
+        .join("|") ?? null,
     [nodes]
   )
 
@@ -138,7 +152,8 @@ export function ChatDeTeste({
         const novo = { ...atuais }
         for (const c of chaves) {
           if (!(c.chave in novo)) {
-            novo[c.chave] = padrao?.[c.chave] ?? valorDefaultParaChave(c.caminhos)
+            novo[c.chave] =
+              padrao?.[c.chave] ?? valorDefaultParaChave(c.caminhos)
           }
         }
         for (const [chave, valor] of Object.entries(padrao ?? {})) {
@@ -170,6 +185,7 @@ export function ChatDeTeste({
           setMensagens((atuais) => [...atuais, ...resposta.messages])
           setDadosColetados(resposta.dadosColetados)
           setEncerrado(resposta.done)
+          setTipoPerguntaPendente(resposta.tipoPerguntaPendente ?? null)
           aoMudarTrilha?.(resposta.trilha ?? [])
         })
         .catch((falha) => {
@@ -183,6 +199,63 @@ export function ChatDeTeste({
     },
     [flowId, aoMudarTrilha, valoresTeste]
   )
+
+  /**
+   * Envia o documento anexado (issue #82) — irmã de `enviar()`, mas via
+   * multipart (POST /admin/test-chat/upload) em vez de JSON. Só chamada
+   * quando `tipoPerguntaPendente === "documento"`.
+   */
+  const enviarDocumento = React.useCallback(
+    (arquivo: File) => {
+      setMensagens((atuais) => [
+        ...atuais,
+        {
+          role: "user",
+          content: [{ type: "text", text: `📎 ${arquivo.name}` }],
+        },
+      ])
+      setCarregando(true)
+      setErro(null)
+      enviarDocumentoDeTeste({ sessionId, flowId, file: arquivo })
+        .then((resposta) => {
+          setMensagens((atuais) => [...atuais, ...resposta.messages])
+          setDadosColetados(resposta.dadosColetados)
+          setEncerrado(resposta.done)
+          setTipoPerguntaPendente(resposta.tipoPerguntaPendente ?? null)
+          aoMudarTrilha?.(resposta.trilha ?? [])
+        })
+        .catch((falha) => {
+          if (falha instanceof ErroApi && falha.status === 413) {
+            setErro("Arquivo grande demais — o limite é 10MB.")
+          } else if (falha instanceof ErroApi && falha.status === 415) {
+            setErro("Formato não suportado — use jpeg, png ou PDF.")
+          } else if (falha instanceof ErroApi && falha.status === 422) {
+            setErro(falha.message)
+          } else {
+            setErro("Não foi possível enviar o documento. Tente novamente.")
+          }
+        })
+        .finally(() => setCarregando(false))
+    },
+    [sessionId, flowId, aoMudarTrilha]
+  )
+
+  function selecionarArquivo(evento: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0]
+    evento.target.value = ""
+    if (!arquivo) return
+
+    if (!FORMATOS_DOCUMENTO_ACEITOS.includes(arquivo.type)) {
+      setErro("Formato não suportado — use jpeg, png ou PDF.")
+      return
+    }
+    if (arquivo.size > TAMANHO_MAXIMO_DOCUMENTO) {
+      setErro("Arquivo grande demais — o limite é 10MB.")
+      return
+    }
+
+    enviarDocumento(arquivo)
+  }
 
   React.useEffect(() => {
     // Espera os dados de teste resolverem (ver efeito acima) antes da 1ª
@@ -213,6 +286,7 @@ export function ChatDeTeste({
     setEncerrado(false)
     setRascunho("")
     setErro(null)
+    setTipoPerguntaPendente(null)
     setSessionId(gerarSessionIdDeTeste())
     // reiniciar zera a sessão no back (#sair / sessionId novo) → trilha
     // vazia até a 1ª resposta da sessão nova chegar.
@@ -352,10 +426,7 @@ export function ChatDeTeste({
           <TabsTrigger value="teste">Dados de Teste</TabsTrigger>
         </TabsList>
 
-        <TabsContent
-          value="conversa"
-          className="flex min-h-0 flex-1 flex-col"
-        >
+        <TabsContent value="conversa" className="flex min-h-0 flex-1 flex-col">
           {modoWhatsApp ? (
             <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 py-4">
               <MockupCelular nomeFluxo={nomeFluxo}>
@@ -368,25 +439,49 @@ export function ChatDeTeste({
             </div>
           )}
 
-          <form
-            onSubmit={enviarRascunho}
-            className="flex items-center gap-2 border-t p-3"
-          >
-            <Input
-              value={rascunho}
-              onChange={(evento) => setRascunho(evento.target.value)}
-              placeholder="Digite a resposta..."
-              disabled={carregando || encerrado}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!rascunho.trim() || carregando || encerrado}
-              aria-label="Enviar"
+          {tipoPerguntaPendente === "documento" ? (
+            <div className="flex flex-col gap-1.5 border-t p-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={carregando || encerrado}
+                onClick={() => inputArquivoRef.current?.click()}
+              >
+                <Paperclip className="size-4" />
+                {carregando ? "Enviando..." : "Anexar arquivo"}
+              </Button>
+              <input
+                ref={inputArquivoRef}
+                type="file"
+                accept={FORMATOS_DOCUMENTO_ACEITOS.join(",")}
+                className="hidden"
+                onChange={selecionarArquivo}
+              />
+              <p className="text-center text-xs text-muted-foreground">
+                jpeg, png ou PDF · até 10MB
+              </p>
+            </div>
+          ) : (
+            <form
+              onSubmit={enviarRascunho}
+              className="flex items-center gap-2 border-t p-3"
             >
-              <Send className="size-4" />
-            </Button>
-          </form>
+              <Input
+                value={rascunho}
+                onChange={(evento) => setRascunho(evento.target.value)}
+                placeholder="Digite a resposta..."
+                disabled={carregando || encerrado}
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!rascunho.trim() || carregando || encerrado}
+                aria-label="Enviar"
+              >
+                <Send className="size-4" />
+              </Button>
+            </form>
+          )}
         </TabsContent>
 
         <TabsContent
@@ -418,4 +513,3 @@ export function ChatDeTeste({
     </div>
   )
 }
-
